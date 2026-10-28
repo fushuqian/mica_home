@@ -72,17 +72,6 @@ button,input{font-family:inherit}
 .brand-name{display:flex;flex-direction:column;line-height:1.15}
 .brand-name b{font-family:var(--font-d);font-weight:800;font-size:14px;letter-spacing:.02em}
 .brand-name span{font-family:var(--font-m);font-size:10px;letter-spacing:.16em;color:var(--ink-3);text-transform:uppercase}
-.nav{display:flex;gap:4px;margin-left:8px}
-.nav a{
-  position:relative;padding:8px 12px;border-radius:999px;font-size:13.5px;
-  color:var(--ink-2);text-decoration:none;transition:color .3s,background .3s;
-}
-.nav a::after{
-  content:"";position:absolute;left:50%;bottom:5px;width:0;height:2px;border-radius:2px;
-  background:var(--teal);transform:translateX(-50%);transition:width .35s var(--ease);
-}
-.nav a:hover{color:var(--ink);background:var(--mh-hover)}
-.nav a:hover::after{width:16px}
 .spacer{flex:1}
 .search{
   display:flex;align-items:center;gap:8px;width:210px;
@@ -304,7 +293,6 @@ h1 em{font-style:normal;color:var(--teal-deep)}
 @media (max-width:1000px){
   .hero{grid-template-columns:1fr;padding-top:56px;gap:32px}
   .panel{max-width:520px}
-  .nav{display:none}
 }
 @media (max-width:640px){
   .topbar{gap:12px;padding:8px 8px 8px 14px}
@@ -342,8 +330,8 @@ h1 em{font-style:normal;color:var(--teal-deep)}
     </svg>
     <span class="brand-name"><b>Mica Home</b><span>Modular Shell</span></span>
   </a>
-  <nav class="nav">
-    <a href="#shelf">模块仓库</a>
+  <nav class="topbar-nav" aria-label="主导航">
+    <a href="#shelf" aria-current="page">模块仓库</a>
     <a href="/docs">开发文档</a>
   </nav>
   <div class="spacer"></div>

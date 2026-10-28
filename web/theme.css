@@ -178,6 +178,45 @@ body {
 :root[data-theme="dark"] .theme-toggle .i-sun { display: none; }
 :root[data-theme="dark"] .theme-toggle .i-moon { display: block; }
 
+/* 顶部导航（宿主两页共用，同级切换） */
+.topbar-nav {
+  display: flex;
+  gap: 4px;
+  margin-left: 8px;
+}
+.topbar-nav a {
+  position: relative;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 13.5px;
+  color: var(--mh-text-2);
+  text-decoration: none;
+  transition: color .3s, background .3s;
+}
+.topbar-nav a::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 5px;
+  width: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--mh-accent);
+  transform: translateX(-50%);
+  transition: width .35s var(--mh-ease);
+}
+.topbar-nav a:hover {
+  color: var(--mh-text);
+  background: var(--mh-hover);
+}
+.topbar-nav a:hover::after { width: 16px; }
+.topbar-nav a[aria-current="page"] { color: var(--mh-text); font-weight: 600; }
+.topbar-nav a[aria-current="page"]::after { width: 16px; }
+
+@media (max-width: 1000px) {
+  .topbar-nav { display: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   body { transition: none; }
   .theme-toggle { transition: none; }

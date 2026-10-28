@@ -43,8 +43,8 @@ pre code{background:none;color:inherit;padding:0}
 .blob.b2{width:480px;height:480px;right:-120px;top:60px;background:var(--mh-blob-2)}
 
 .topbar{
-  position:sticky;top:14px;z-index:60;max-width:1160px;width:calc(100% - 36px);margin:14px auto 0;
-  display:flex;align-items:center;gap:22px;padding:9px 10px 9px 18px;border-radius:999px;
+  position:sticky;top:14px;z-index:60;max-width:1240px;width:calc(100% - 36px);margin:14px auto 0;
+  display:flex;align-items:center;gap:26px;padding:9px 10px 9px 18px;border-radius:999px;
   background:linear-gradient(150deg,var(--mh-glass-a),var(--mh-glass-b));
   -webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%);
   border:1px solid var(--mh-glass-border);
@@ -56,20 +56,10 @@ pre code{background:none;color:inherit;padding:0}
 .brand-name{display:flex;flex-direction:column;line-height:1.15}
 .brand-name b{font-family:var(--font-d);font-weight:800;font-size:14px}
 .brand-name span{font-family:var(--font-m);font-size:10px;letter-spacing:.16em;color:var(--ink-3);text-transform:uppercase}
-.topbar .tag{
-  font-family:var(--font-m);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
-  color:var(--teal-deep);border:1px solid var(--mh-accent-line);background:var(--mh-accent-soft);
-  padding:5px 11px;border-radius:999px;
-}
-.back{
-  margin-left:auto;text-decoration:none;color:var(--ink-2);font-size:13px;
-  padding:7px 14px;border-radius:999px;border:1px solid var(--line);
-  background:var(--mh-soft);transition:background .25s,color .25s,transform .35s var(--ease);
-}
-.back:hover{background:var(--mh-surface);color:var(--ink);transform:translateX(-2px)}
+.spacer{flex:1}
 
 .layout{
-  max-width:1160px;margin:0 auto;padding:46px 22px 90px;
+  max-width:1240px;margin:0 auto;padding:46px 22px 90px;
   display:grid;grid-template-columns:214px minmax(0,1fr);gap:46px;align-items:start;
 }
 .toc{position:sticky;top:92px;animation:rise .8s var(--ease) .05s both}
@@ -148,7 +138,6 @@ td.mono{font-family:var(--font-m);font-size:12px;color:var(--ink-2)}
 }
 @media (max-width:640px){
   .topbar{gap:12px;padding:8px 8px 8px 14px}
-  .topbar .tag{display:none}
   .layout{padding:26px 16px 70px}
   section{padding:18px 16px}
   table{font-size:12.5px}
@@ -169,8 +158,11 @@ td.mono{font-family:var(--font-m);font-size:12px;color:var(--ink-2)}
     </svg>
     <span class="brand-name"><b>Mica Home</b><span>Modular Shell</span></span>
   </a>
-  <span class="tag">开发文档</span>
-  <a class="back" href="/">← 返回模块仓库</a>
+  <nav class="topbar-nav" aria-label="主导航">
+    <a href="/">模块仓库</a>
+    <a href="/docs" aria-current="page">开发文档</a>
+  </nav>
+  <div class="spacer"></div>
   <button class="theme-toggle" data-theme-toggle type="button" aria-pressed="false" aria-label="切换主题" title="切换主题">
     <svg class="i-sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3L17 7M7 17l-1.7 1.7"/></svg>
     <svg class="i-moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.3A8.6 8.6 0 019.7 3.5a8.7 8.7 0 1010.8 10.8z"/></svg>
