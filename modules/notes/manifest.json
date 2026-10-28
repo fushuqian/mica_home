@@ -1,0 +1,12 @@
+{
+  "id": "notes",
+  "name": "便签",
+  "version": "1.0.0",
+  "description": "最简数据型模块：本地存储便签，演示模块独立状态与列表交互。",
+  "author": "Mica Home",
+  "category": "数据",
+  "icon": "box",
+  "tone": "tone-b",
+  "permissions": ["storage.local"],
+  "frontend": { "entry": "index.js" }
+}

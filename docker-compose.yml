@@ -1,0 +1,23 @@
+name: mica-home
+
+services:
+  mica-home:
+    build: .
+    image: mica-home:0.1.0
+    container_name: mica-home
+    ports:
+      - "8080:8080"
+    environment:
+      TZ: Asia/Shanghai
+      MICA_ADDR: ":8080"
+      MICA_MODULES_DIR: /app/modules
+      MICA_DATA_DIR: /data
+    volumes:
+      # 模块目录挂载出来：往里面丢一个模块目录，刷新页面即可看到
+      - ./modules:/app/modules
+      # 安装状态等运行数据
+      - mica-data:/data
+    restart: unless-stopped
+
+volumes:
+  mica-data:

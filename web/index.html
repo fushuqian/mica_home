@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mica Home · 模块化宿主</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EDF1F6;
+  --ink:#0A141F;
+  --ink-2:#39485A;
+  --ink-3:#7B8899;
+  --line:rgba(10,20,31,.09);
+  --glass:rgba(255,255,255,.58);
+  --glass-2:rgba(255,255,255,.78);
+  --teal:#00B39F;
+  --teal-deep:#00796B;
+  --blue:#2F6BFF;
+  --amber:#E86A2C;
+  --r-lg:26px;
+  --r-md:20px;
+  --shadow:0 18px 40px -26px rgba(10,20,31,.45), 0 2px 10px rgba(10,20,31,.05);
+  --shadow-hi:0 34px 60px -30px rgba(10,20,31,.5), 0 6px 18px rgba(10,20,31,.07);
+  --ease:cubic-bezier(.2,.8,.2,1);
+  --font-d:"Bricolage Grotesque","PingFang SC","Microsoft YaHei",sans-serif;
+  --font-b:"IBM Plex Sans","PingFang SC","Microsoft YaHei",sans-serif;
+  --font-m:"IBM Plex Mono","SFMono-Regular",Consolas,monospace;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:var(--font-b);font-size:15px;line-height:1.6;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden;
+}
+::selection{background:rgba(0,179,159,.22)}
+h1,h2,h3{margin:0;font-family:var(--font-d);font-weight:700}
+p{margin:0}
+button,input{font-family:inherit}
+.mono{font-family:var(--font-m);font-variant-numeric:tabular-nums}
+
+/* ---------- 背景层 ---------- */
+.scene{position:fixed;inset:0;z-index:-1;overflow:hidden;
+  background:linear-gradient(180deg,#F4F7FA 0%,#E9EFF5 58%,#EFF3F7 100%);}
+.scene::before{
+  content:"";position:absolute;inset:-20%;
+  background-image:
+    linear-gradient(rgba(10,20,31,.055) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(10,20,31,.055) 1px,transparent 1px);
+  background-size:76px 76px;
+  -webkit-mask-image:radial-gradient(ellipse at 50% 18%,#000 0%,rgba(0,0,0,.55) 45%,transparent 80%);
+  mask-image:radial-gradient(ellipse at 50% 18%,#000 0%,rgba(0,0,0,.55) 45%,transparent 80%);
+}
+.scene::after{
+  content:"";position:absolute;inset:0;opacity:.045;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode:multiply;
+}
+.blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:.75;animation:drift 46s var(--ease) infinite alternate}
+.blob.b1{width:620px;height:620px;left:-180px;top:-220px;background:rgba(0,179,159,.26)}
+.blob.b2{width:540px;height:540px;right:-140px;top:40px;background:rgba(47,107,255,.18);animation-duration:38s}
+.blob.b3{width:460px;height:460px;left:38%;top:58%;background:rgba(232,106,44,.10);animation-duration:52s}
+@keyframes drift{
+  0%{transform:translate3d(0,0,0) scale(1)}
+  50%{transform:translate3d(60px,-40px,0) scale(1.08)}
+  100%{transform:translate3d(-40px,50px,0) scale(.96)}
+}
+
+.glass{
+  background:linear-gradient(150deg,var(--glass-2),var(--glass));
+  -webkit-backdrop-filter:blur(24px) saturate(160%);
+  backdrop-filter:blur(24px) saturate(160%);
+  border:1px solid rgba(255,255,255,.92);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.95), var(--shadow);
+}
+
+/* ---------- 顶栏 ---------- */
+.topbar{
+  position:sticky;top:14px;z-index:60;
+  max-width:1240px;width:calc(100% - 36px);margin:14px auto 0;
+  display:flex;align-items:center;gap:26px;
+  padding:9px 10px 9px 18px;border-radius:999px;
+  animation:drop .9s var(--ease) both;
+}
+@keyframes drop{from{opacity:0;transform:translateY(-16px)}to{opacity:1;transform:none}}
+.brand{display:flex;align-items:center;gap:10px;flex:0 0 auto;text-decoration:none;color:inherit}
+.brand svg{display:block}
+.brand-name{display:flex;flex-direction:column;line-height:1.15}
+.brand-name b{font-family:var(--font-d);font-weight:800;font-size:14px;letter-spacing:.02em}
+.brand-name span{font-family:var(--font-m);font-size:10px;letter-spacing:.16em;color:var(--ink-3);text-transform:uppercase}
+.nav{display:flex;gap:4px;margin-left:8px}
+.nav a{
+  position:relative;padding:8px 12px;border-radius:999px;font-size:13.5px;
+  color:var(--ink-2);text-decoration:none;transition:color .3s,background .3s;
+}
+.nav a::after{
+  content:"";position:absolute;left:50%;bottom:5px;width:0;height:2px;border-radius:2px;
+  background:var(--teal);transform:translateX(-50%);transition:width .35s var(--ease);
+}
+.nav a:hover{color:var(--ink);background:rgba(255,255,255,.62)}
+.nav a:hover::after{width:16px}
+.spacer{flex:1}
+.search{
+  display:flex;align-items:center;gap:8px;width:210px;
+  padding:8px 14px;border-radius:999px;
+  background:rgba(255,255,255,.55);border:1px solid var(--line);
+  transition:width .45s var(--ease),border-color .3s,background .3s;
+}
+.search:focus-within{width:280px;border-color:rgba(0,179,159,.45);background:rgba(255,255,255,.9)}
+.search svg{flex:0 0 auto;color:var(--ink-3)}
+.search input{width:100%;border:0;outline:0;background:transparent;font-size:13px;color:var(--ink)}
+.search input::placeholder{color:var(--ink-3)}
+.status-pill{
+  display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:999px;
+  font-family:var(--font-m);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--teal-deep);border:1px solid rgba(0,179,159,.35);background:rgba(0,179,159,.08);
+  flex:0 0 auto;
+}
+.status-pill i{width:6px;height:6px;border-radius:50%;background:var(--teal);animation:blink 1.8s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+
+/* ---------- Hero ---------- */
+.hero{
+  max-width:1240px;margin:0 auto;padding:78px 22px 26px;
+  display:grid;grid-template-columns:1.4fr .9fr;gap:44px;align-items:end;
+}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:9px;
+  font-family:var(--font-m);font-size:10.5px;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--teal-deep);margin-bottom:20px;
+  animation:rise .8s var(--ease) .05s both;
+}
+.eyebrow i{
+  width:6px;height:6px;border-radius:2px;background:var(--teal);
+  box-shadow:0 0 0 4px rgba(0,179,159,.16);animation:pulse 2.6s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgba(0,179,159,.14)}50%{box-shadow:0 0 0 7px rgba(0,179,159,.05)}}
+h1{
+  font-size:clamp(42px,6.2vw,78px);font-weight:800;letter-spacing:-.042em;
+  line-height:1.01;text-wrap:balance;
+  animation:rise .9s var(--ease) .12s both;
+}
+h1 em{font-style:normal;color:var(--teal-deep)}
+.lede{
+  margin-top:20px;max-width:46ch;color:var(--ink-2);font-size:15.5px;
+  animation:rise .9s var(--ease) .2s both;
+}
+.stats{display:flex;gap:38px;margin-top:36px;animation:rise .9s var(--ease) .28s both}
+.stat b{display:block;font-family:var(--font-d);font-size:30px;font-weight:800;letter-spacing:-.02em}
+.stat span{font-family:var(--font-m);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+@keyframes rise{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+
+.panel{padding:20px 22px 18px;border-radius:var(--r-lg);animation:rise .95s var(--ease) .3s both}
+.panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.panel-head h2{font-size:12px;font-family:var(--font-m);letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3);font-weight:500}
+.live{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-m);font-size:10.5px;color:var(--teal-deep);letter-spacing:.1em}
+.live i{width:6px;height:6px;border-radius:50%;background:var(--teal);animation:blink 1.8s ease-in-out infinite}
+.rows{display:grid;gap:11px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:14px;font-size:13px}
+.row span{color:var(--ink-3);font-size:12.5px;flex:0 0 auto}
+.row b{font-family:var(--font-m);font-weight:500;font-size:12.5px;text-align:right;overflow-wrap:anywhere}
+
+/* ---------- 模块架 ---------- */
+.shelf{max-width:1240px;margin:0 auto;padding:44px 22px 90px}
+.shelf-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:26px}
+.shelf-head h2{font-size:26px;letter-spacing:-.025em}
+.shelf-head p{color:var(--ink-3);font-size:13px;margin-top:6px}
+.chips{display:flex;gap:7px;flex-wrap:wrap}
+.chip{
+  border:1px solid var(--line);border-radius:999px;padding:7px 15px;
+  font-size:12.5px;color:var(--ink-2);cursor:pointer;
+  background:rgba(255,255,255,.52);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+  transition:all .3s var(--ease);
+}
+.chip:hover{border-color:rgba(0,179,159,.5);color:var(--ink);transform:translateY(-1px)}
+.chip[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink);box-shadow:0 8px 18px -12px rgba(10,20,31,.9)}
+.chip[aria-pressed="true"]:hover{transform:none}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(292px,1fr));gap:18px}
+.mod{
+  position:relative;isolation:isolate;overflow:hidden;
+  padding:20px 20px 18px;border-radius:var(--r-md);
+  background:linear-gradient(152deg,rgba(255,255,255,.84),rgba(255,255,255,.46));
+  -webkit-backdrop-filter:blur(22px) saturate(155%);
+  backdrop-filter:blur(22px) saturate(155%);
+  border:1px solid rgba(255,255,255,.92);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.95), var(--shadow);
+  transition:transform .5s var(--ease),box-shadow .5s var(--ease),border-color .4s,opacity .35s;
+  animation:rise .8s var(--ease) both;
+  animation-delay:var(--d,0ms);
+  will-change:transform;cursor:pointer;
+}
+.mod::before{
+  content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(260px circle at var(--mx,50%) var(--my,0%),rgba(0,179,159,.13),transparent 62%);
+  opacity:0;transition:opacity .45s;
+}
+.mod::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(112deg,transparent 34%,rgba(255,255,255,.85) 48%,transparent 62%);
+  background-size:260% 100%;background-position:-140% 0;
+  transition:background-position 1s var(--ease);opacity:.9;
+}
+.mod:hover{transform:translateY(-9px);box-shadow:inset 0 1px 0 rgba(255,255,255,.95),var(--shadow-hi);border-color:rgba(0,179,159,.45)}
+.mod:hover::before{opacity:1}
+.mod:hover::after{background-position:160% 0}
+.mod:focus-within{border-color:rgba(0,179,159,.55);outline:none}
+.mod[hidden]{display:none}
+.mod.filtering{opacity:0;transform:scale(.97)}
+
+.mod-top{display:flex;align-items:center;gap:13px}
+.mod-icon{
+  width:48px;height:48px;flex:0 0 auto;border-radius:15px;display:grid;place-items:center;
+  background:linear-gradient(150deg,var(--ic1),var(--ic2));
+  border:1px solid rgba(255,255,255,.9);color:var(--ic-ink);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.9), 0 8px 16px -12px rgba(10,20,31,.7);
+  transition:transform .5s var(--ease);
+}
+.mod:hover .mod-icon{transform:rotate(-4deg) scale(1.06)}
+.tone-a{--ic1:rgba(0,179,159,.20);--ic2:rgba(0,179,159,.06);--ic-ink:var(--teal-deep)}
+.tone-b{--ic1:rgba(47,107,255,.17);--ic2:rgba(47,107,255,.05);--ic-ink:#1F4ED8}
+.tone-c{--ic1:rgba(232,106,44,.16);--ic2:rgba(232,106,44,.05);--ic-ink:#B34E1C}
+.tone-d{--ic1:rgba(57,72,90,.14);--ic2:rgba(57,72,90,.04);--ic-ink:#39485A}
+
+.mod h3{font-size:16px;letter-spacing:-.012em;line-height:1.3}
+.mod-sub{display:flex;align-items:center;gap:7px;margin-top:3px;font-size:11px;color:var(--ink-3)}
+.mod-sub .dot{width:3px;height:3px;border-radius:50%;background:var(--ink-3);opacity:.6}
+.badge{
+  position:absolute;top:14px;right:14px;
+  font-family:var(--font-m);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
+  padding:4px 9px;border-radius:999px;color:#fff;background:var(--teal);
+  box-shadow:0 6px 14px -8px rgba(0,179,159,.9);
+  animation:rise .6s var(--ease) .5s both;
+}
+.mod-desc{margin-top:14px;font-size:13px;line-height:1.62;color:var(--ink-2);min-height:63px}
+.mod-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.size{font-size:11px;color:var(--ink-3);letter-spacing:.02em}
+
+.install{
+  position:relative;overflow:hidden;border:0;cursor:pointer;
+  padding:9px 18px;border-radius:999px;font-size:12.5px;font-weight:600;
+  color:#fff;background:var(--ink);
+  transition:background .35s,transform .35s var(--ease),box-shadow .35s;
+}
+.install:hover{transform:translateY(-1px);box-shadow:0 10px 22px -14px rgba(10,20,31,.8)}
+.install:active{transform:translateY(0) scale(.98)}
+.install.done{
+  background:rgba(255,255,255,.66);color:var(--teal-deep);
+  border:1px solid rgba(0,179,159,.45);box-shadow:none;
+}
+.install.done:hover{transform:none;background:rgba(255,255,255,.85)}
+
+/* ---------- 空状态 / 骨架 ---------- */
+.empty-state{
+  grid-column:1/-1;padding:56px 24px;text-align:center;border-radius:var(--r-md);
+  border:1px dashed rgba(10,20,31,.14);color:var(--ink-3);font-size:13.5px;
+  background:rgba(255,255,255,.4);
+}
+.empty-state b{display:block;font-family:var(--font-d);font-size:17px;color:var(--ink);margin-bottom:6px}
+
+/* ---------- 模块舞台 ---------- */
+.stage-wrap{
+  position:fixed;inset:0;z-index:70;display:grid;place-items:end center;
+  padding:0;opacity:0;pointer-events:none;transition:opacity .35s var(--ease);
+}
+.stage-wrap.open{opacity:1;pointer-events:auto}
+.stage-wrap::before{
+  content:"";position:absolute;inset:0;
+  background:rgba(10,20,31,.18);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+}
+.stage{
+  position:relative;width:min(1120px,calc(100% - 28px));height:min(86vh,860px);
+  margin-bottom:14px;border-radius:var(--r-lg);overflow:hidden;display:flex;flex-direction:column;
+  background:linear-gradient(160deg,rgba(255,255,255,.92),rgba(255,255,255,.76));
+  -webkit-backdrop-filter:blur(30px) saturate(170%);backdrop-filter:blur(30px) saturate(170%);
+  border:1px solid rgba(255,255,255,.95);
+  box-shadow:0 46px 80px -40px rgba(10,20,31,.6);
+  transform:translateY(28px) scale(.985);
+  transition:transform .5s var(--ease);
+}
+.stage-wrap.open .stage{transform:none}
+.stage-head{
+  display:flex;align-items:center;gap:14px;padding:16px 20px;
+  border-bottom:1px solid var(--line);
+}
+.stage-head .mod-icon{width:40px;height:40px;border-radius:13px}
+.stage-title{display:flex;flex-direction:column;line-height:1.25;min-width:0}
+.stage-title b{font-family:var(--font-d);font-size:16px;letter-spacing:-.01em}
+.stage-title span{font-family:var(--font-m);font-size:10.5px;letter-spacing:.1em;color:var(--ink-3);text-transform:uppercase}
+.stage-close{
+  margin-left:auto;width:34px;height:34px;border-radius:50%;border:1px solid var(--line);
+  background:rgba(255,255,255,.6);color:var(--ink-2);cursor:pointer;font-size:16px;line-height:1;
+  display:grid;place-items:center;transition:background .25s,transform .35s var(--ease),color .25s;
+}
+.stage-close:hover{background:#fff;color:var(--ink);transform:rotate(90deg)}
+.stage-body{padding:22px;overflow:auto;flex:1}
+.stage-loading{
+  height:100%;display:grid;place-items:center;color:var(--ink-3);font-size:13px;
+}
+.stage-error{
+  margin:0;padding:18px;border-radius:14px;background:rgba(232,106,44,.08);
+  border:1px solid rgba(232,106,44,.28);color:#8A3C13;font-size:13px;line-height:1.7;
+}
+
+/* ---------- Toast ---------- */
+.toast{
+  position:fixed;left:50%;bottom:26px;z-index:80;
+  display:flex;align-items:center;gap:11px;
+  padding:12px 18px 12px 14px;border-radius:999px;
+  font-size:13px;color:var(--ink);
+  border:1px solid rgba(255,255,255,.95);
+  background:linear-gradient(150deg,rgba(255,255,255,.92),rgba(255,255,255,.7));
+  -webkit-backdrop-filter:blur(26px) saturate(170%);backdrop-filter:blur(26px) saturate(170%);
+  box-shadow:0 24px 50px -24px rgba(10,20,31,.55);
+  transform:translate(-50%,80px);opacity:0;pointer-events:none;
+  transition:transform .6s var(--ease),opacity .4s;
+}
+.toast.show{transform:translate(-50%,0);opacity:1}
+.toast .tick{
+  width:22px;height:22px;border-radius:50%;display:grid;place-items:center;
+  background:var(--teal);color:#fff;flex:0 0 auto;
+}
+
+.foot{max-width:1240px;margin:0 auto;padding:0 22px 46px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--ink-3);font-family:var(--font-m);letter-spacing:.08em}
+
+@media (max-width:1000px){
+  .hero{grid-template-columns:1fr;padding-top:56px;gap:32px}
+  .panel{max-width:520px}
+  .nav{display:none}
+}
+@media (max-width:640px){
+  .topbar{gap:12px;padding:8px 8px 8px 14px}
+  .search{width:auto;flex:1}
+  .search:focus-within{width:auto}
+  .status-pill{display:none}
+  .hero{padding:44px 18px 20px}
+  h1{font-size:42px}
+  .stats{gap:24px}
+  .grid{grid-template-columns:1fr}
+  .mod-desc{min-height:0}
+  .shelf{padding:32px 18px 70px}
+  .stage{height:92vh;width:calc(100% - 16px)}
+  .stage-body{padding:16px}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.06s!important}
+}
+</style>
+</head>
+<body>
+<div class="scene" aria-hidden="true">
+  <div class="blob b1"></div>
+  <div class="blob b2"></div>
+  <div class="blob b3"></div>
+</div>
+
+<header class="topbar glass">
+  <a class="brand" href="/">
+    <svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true">
+      <rect x="2.5" y="2.5" width="11" height="11" rx="3.5" fill="#0A141F"/>
+      <rect x="16.5" y="2.5" width="11" height="11" rx="3.5" fill="#00B39F"/>
+      <rect x="2.5" y="16.5" width="11" height="11" rx="3.5" stroke="#0A141F" stroke-width="1.4"/>
+      <rect x="16.5" y="16.5" width="11" height="11" rx="3.5" fill="#0A141F" opacity=".22"/>
+    </svg>
+    <span class="brand-name"><b>Mica Home</b><span>Modular Shell</span></span>
+  </a>
+  <nav class="nav">
+    <a href="#shelf">模块仓库</a>
+    <a href="/api/modules" target="_blank" rel="noopener">模块 API</a>
+  </nav>
+  <div class="spacer"></div>
+  <label class="search">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+    <input id="q" type="search" placeholder="搜索模块、作者或能力…" aria-label="搜索模块">
+  </label>
+  <span class="status-pill" id="status-pill"><i></i><span>CONNECTING</span></span>
+</header>
+
+<main>
+  <section class="hero">
+    <div>
+      <div class="eyebrow"><i></i>The Modular Runtime</div>
+      <h1>把能力<br>一块块<em>装进来</em></h1>
+      <p class="lede">宿主只做最薄的一层：路由、身份、存储与沙箱。剩下的交给模块——装进来即生效，卸载不留痕。</p>
+      <div class="stats">
+        <div class="stat"><b><span class="mono" data-count="0">0</span></b><span>模块总数</span></div>
+        <div class="stat"><b><span class="mono" data-count="0">0</span></b><span>正在运行</span></div>
+        <div class="stat"><b><span class="mono" data-count="0" data-suffix="s">0s</span></b><span>运行时长</span></div>
+      </div>
+    </div>
+
+    <aside class="panel glass">
+      <div class="panel-head">
+        <h2>System</h2>
+        <span class="live"><i></i>LIVE</span>
+      </div>
+      <div class="rows" id="sys-rows">
+        <div class="row"><span>宿主版本</span><b>—</b></div>
+        <div class="row"><span>运行时</span><b>—</b></div>
+        <div class="row"><span>模块目录</span><b>—</b></div>
+        <div class="row"><span>模块契约</span><b>manifest.json</b></div>
+      </div>
+    </aside>
+  </section>
+
+  <section class="shelf" id="shelf">
+    <div class="shelf-head">
+      <div>
+        <h2>模块仓库</h2>
+        <p class="mono" id="shelf-summary">正在扫描模块目录…</p>
+      </div>
+      <div class="chips" id="chips">
+        <button class="chip" aria-pressed="true" data-filter="all">全部</button>
+      </div>
+    </div>
+    <div class="grid" id="grid"></div>
+  </section>
+</main>
+
+<footer class="foot">
+  <span>MICA HOME / MODULE HOST</span>
+  <span id="clock">--:--:--</span>
+</footer>
+
+<div class="stage-wrap" id="stage-wrap" aria-hidden="true">
+  <section class="stage" role="dialog" aria-modal="true" aria-labelledby="stage-name">
+    <header class="stage-head">
+      <div class="mod-icon" id="stage-icon"></div>
+      <div class="stage-title">
+        <b id="stage-name">模块</b>
+        <span id="stage-meta">—</span>
+      </div>
+      <button class="stage-close" id="stage-close" aria-label="关闭">✕</button>
+    </header>
+    <div class="stage-body" id="stage-body"></div>
+  </section>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite">
+  <span class="tick">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5.5 5.5L20 6.5"/></svg>
+  </span>
+  <span id="toast-text">已完成</span>
+</div>
+
+<script>
+const ICONS = {
+  shield:'<path d="M12 3l7.5 3v5.2c0 4.6-3.1 7.9-7.5 9.3-4.4-1.4-7.5-4.7-7.5-9.3V6L12 3z"/><path d="M9 12.2l2.2 2.2L15.4 10"/>',
+  flow:'<rect x="3" y="3.5" width="6" height="5" rx="1.6"/><rect x="15" y="15.5" width="6" height="5" rx="1.6"/><rect x="3" y="15.5" width="6" height="5" rx="1.6"/><path d="M9 6h4.5a2 2 0 012 2v5.5"/><path d="M9 18h6"/>',
+  radar:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.6"/><path d="M12 3.5v3M12 17.5v3M3.5 12h3M17.5 12h3"/><path d="M12 12l5-3.4"/>',
+  chart:'<path d="M4 20V9M10 20V5M16 20v-7M22 20H2"/>',
+  box:'<path d="M3.5 7.8L12 3.5l8.5 4.3v8.4L12 20.5l-8.5-4.3V7.8z"/><path d="M3.5 7.8L12 12l8.5-4.2M12 12v8.5"/>',
+  spark:'<path d="M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9L12 3.5z"/><path d="M18.5 16.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9.9-2.1z"/>',
+  scan:'<path d="M3.5 8V5.5A2 2 0 015.5 3.5H8M16 3.5h2.5a2 2 0 012 2V8M20.5 16v2.5a2 2 0 01-2 2H16M8 20.5H5.5a2 2 0 01-2-2V16"/><path d="M7 12h10"/>',
+  clock:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3.2 2"/>',
+  bus:'<rect x="3" y="4.5" width="18" height="12" rx="2.4"/><path d="M7.5 20.5l2.2-4M16.5 20.5l-2.2-4"/><path d="M7 9.5h4M7 13h7"/>'
+};
+
+const grid = document.getElementById('grid');
+const chips = document.getElementById('chips');
+const q = document.getElementById('q');
+const summary = document.getElementById('shelf-summary');
+const toast = document.getElementById('toast');
+const toastText = document.getElementById('toast-text');
+const stageWrap = document.getElementById('stage-wrap');
+const stageBody = document.getElementById('stage-body');
+const stageName = document.getElementById('stage-name');
+const stageMeta = document.getElementById('stage-meta');
+const stageIcon = document.getElementById('stage-icon');
+const stageClose = document.getElementById('stage-close');
+
+let MODULES = [];
+let activeCat = 'all';
+let cleanup = null;
+let openToken = 0;
+
+function iconSVG(name, size) {
+  const path = ICONS[name] || ICONS.box;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg>`;
+}
+
+function showToast(text) {
+  toastText.textContent = text;
+  toast.classList.add('show');
+  clearTimeout(showToast.t);
+  showToast.t = setTimeout(() => toast.classList.remove('show'), 2600);
+}
+
+async function jsonFetch(url, init) {
+  const res = await fetch(url, init);
+  if (!res.ok) {
+    const body = await res.text();
+    let msg = body;
+    try { msg = JSON.parse(body).error || body; } catch {}
+    throw new Error(msg || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+function render(list) {
+  if (!list.length) {
+    grid.innerHTML = `<div class="empty-state"><b>模块目录是空的</b>
+      把模块放进 <span class="mono">modules/</span> 下，刷新即可看到。</div>`;
+    return;
+  }
+  grid.innerHTML = list.map((m, i) => `
+    <article class="mod" data-id="${m.id}" data-cat="${m.category || '未分类'}"
+             data-installed="${!!m.installed}" tabindex="0" style="--d:${60 + i * 55}ms" aria-label="${m.name}">
+      ${m.installed ? '<span class="badge">RUNNING</span>' : ''}
+      <div class="mod-top">
+        <div class="mod-icon ${m.tone || 'tone-a'}">${iconSVG(m.icon, 22)}</div>
+        <div>
+          <h3>${m.name}</h3>
+          <div class="mod-sub">
+            <span class="mono">v${m.version}</span><span class="dot"></span><span>${m.category || '未分类'}</span>
+          </div>
+        </div>
+      </div>
+      <p class="mod-desc">${m.description || ''}</p>
+      <div class="mod-foot">
+        <span class="size mono">权限 ${(m.permissions || []).length} 项</span>
+        <button class="install ${m.installed ? 'done' : ''}" title="${m.installed ? '点击卸载' : '安装并启用'}">
+          ${m.installed ? '卸载' : '安装'}
+        </button>
+      </div>
+    </article>`).join('');
+  applyFilter();
+}
+
+function applyFilter() {
+  const kw = q.value.trim().toLowerCase();
+  document.querySelectorAll('.mod').forEach(card => {
+    const catOK = activeCat === 'all'
+      || (activeCat === 'installed' ? card.dataset.installed === 'true' : card.dataset.cat === activeCat);
+    const ok = catOK && (!kw || card.textContent.toLowerCase().includes(kw));
+    card.hidden = !ok;
+  });
+}
+
+function renderChips() {
+  const cats = ['all', 'installed', ...new Set(MODULES.map(m => m.category || '未分类'))];
+  chips.innerHTML = cats.map(c => `
+    <button class="chip" data-filter="${c}" aria-pressed="${c === activeCat}">
+      ${c === 'all' ? '全部' : c === 'installed' ? '已安装' : c}
+    </button>`).join('');
+}
+
+async function load() {
+  try {
+    const [health, modules] = await Promise.all([jsonFetch('/api/health'), jsonFetch('/api/modules')]);
+    MODULES = modules;
+    render(MODULES);
+    renderChips();
+
+    const installed = modules.filter(m => m.installed).length;
+    summary.textContent = `共 ${modules.length} 个可安装模块 · 已启用 ${installed} 个`;
+
+    const pill = document.getElementById('status-pill');
+    pill.querySelector('span').textContent = `ONLINE · ${installed}/${modules.length}`;
+
+    const rows = [
+      ['宿主版本', `v${health.version}`],
+      ['运行时', health.go],
+      ['已安装模块', `${health.installed} / ${health.modules}`],
+      ['模块目录', 'MICA_MODULES_DIR'],
+    ];
+    document.getElementById('sys-rows').innerHTML =
+      rows.map(([k, v]) => `<div class="row"><span>${k}</span><b>${v}</b></div>`).join('');
+
+    countUp(document.querySelectorAll('[data-count]')[0], modules.length);
+    countUp(document.querySelectorAll('[data-count]')[1], installed);
+    countUp(document.querySelectorAll('[data-count]')[2], health.uptimeSec, 's', 0);
+  } catch (err) {
+    grid.innerHTML = `<div class="empty-state"><b>无法连接宿主</b>${err.message}</div>`;
+    summary.textContent = '连接失败';
+  }
+}
+
+function countUp(el, target, suffix = '', dec = 0) {
+  if (!el) return;
+  const dur = 900;
+  const t0 = performance.now();
+  (function step(t) {
+    const k = Math.min(1, (t - t0) / dur);
+    el.textContent = (target * (1 - Math.pow(1 - k, 3))).toFixed(dec) + suffix;
+    if (k < 1) requestAnimationFrame(step);
+  })(t0);
+}
+
+async function toggleInstall(m) {
+  const action = m.installed ? 'uninstall' : 'install';
+  try {
+    await jsonFetch(`/api/modules/${m.id}/${action}`, { method: 'POST' });
+    showToast(m.installed ? `已卸载 ${m.name}` : `已安装 ${m.name}`);
+    await load();
+  } catch (err) {
+    showToast(`操作失败：${err.message}`);
+  }
+}
+
+async function openModule(m) {
+  if (!m.installed) {
+    showToast('请先安装该模块');
+    return;
+  }
+  cleanupStage();
+  const token = ++openToken;
+
+  stageName.textContent = m.name;
+  stageMeta.textContent = `v${m.version} · ${m.author || '未知作者'} · ${m.id}`;
+  stageIcon.className = `mod-icon ${m.tone || 'tone-a'}`;
+  stageIcon.innerHTML = iconSVG(m.icon, 20);
+  stageBody.innerHTML = '<div class="stage-loading">正在加载模块前端…</div>';
+  stageWrap.classList.add('open');
+  stageWrap.setAttribute('aria-hidden', 'false');
+
+  try {
+    const mod = await import(`/api/m/${m.id}/ui/${m.frontend.entry}?v=${encodeURIComponent(m.version)}`);
+    if (token !== openToken) return;
+    if (typeof mod.mount !== 'function') {
+      throw new Error('模块入口必须导出 mount(el, api)');
+    }
+    stageBody.innerHTML = '';
+    const api = {
+      id: m.id,
+      version: m.version,
+      request: (path, init) => jsonFetch(`/api/m/${m.id}${path}`, init),
+      toast: showToast,
+      close: closeStage,
+    };
+    const result = await mod.mount(stageBody, api);
+    if (token !== openToken) {
+      if (typeof result === 'function') result();
+      return;
+    }
+    cleanup = typeof result === 'function' ? result : null;
+  } catch (err) {
+    if (token !== openToken) return;
+    stageBody.innerHTML = `<div class="stage-error"><b>模块加载失败</b><br>${err.message}</div>`;
+  }
+}
+
+function cleanupStage() {
+  openToken++;
+  if (cleanup) {
+    try { cleanup(); } catch {}
+    cleanup = null;
+  }
+  stageBody.innerHTML = '';
+}
+
+function closeStage() {
+  cleanupStage();
+  stageWrap.classList.remove('open');
+  stageWrap.setAttribute('aria-hidden', 'true');
+}
+
+grid.addEventListener('click', e => {
+  const card = e.target.closest('.mod');
+  if (!card) return;
+  const m = MODULES.find(x => x.id === card.dataset.id);
+  if (!m) return;
+  if (e.target.closest('.install')) {
+    toggleInstall(m);
+    return;
+  }
+  openModule(m);
+});
+
+grid.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const card = e.target.closest('.mod');
+  if (!card) return;
+  e.preventDefault();
+  const m = MODULES.find(x => x.id === card.dataset.id);
+  if (m) openModule(m);
+});
+
+grid.addEventListener('pointermove', e => {
+  const card = e.target.closest('.mod');
+  if (!card) return;
+  const r = card.getBoundingClientRect();
+  card.style.setProperty('--mx', ((e.clientX - r.left) / r.width * 100) + '%');
+  card.style.setProperty('--my', ((e.clientY - r.top) / r.height * 100) + '%');
+});
+
+chips.addEventListener('click', e => {
+  const chip = e.target.closest('.chip');
+  if (!chip) return;
+  activeCat = chip.dataset.filter;
+  chips.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(c === chip)));
+  applyFilter();
+});
+
+q.addEventListener('input', applyFilter);
+stageClose.addEventListener('click', closeStage);
+stageWrap.addEventListener('click', e => { if (e.target === stageWrap) closeStage(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeStage(); });
+
+function clock() {
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  document.getElementById('clock').textContent = `UTC+8 ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+load();
+clock();
+setInterval(clock, 1000);
+</script>
+</body>
+</html>

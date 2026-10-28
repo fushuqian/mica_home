@@ -1,0 +1,11 @@
+# 运行数据
+/data/
+data/
+
+# 截图与临时产物
+.screenshots/
+toberemoved/
+
+# 编译产物
+*.exe
+mica-home

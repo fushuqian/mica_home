@@ -1,0 +1,12 @@
+{
+  "id": "hello",
+  "name": "Hello 模块",
+  "version": "1.0.0",
+  "description": "最小示例：验证宿主扫描、安装、前端 ESM 动态挂载与模块 API 注入。",
+  "author": "Mica Home",
+  "category": "核心",
+  "icon": "spark",
+  "tone": "tone-a",
+  "permissions": [],
+  "frontend": { "entry": "index.js" }
+}
