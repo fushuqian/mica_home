@@ -7,39 +7,40 @@ function injectStyle() {
   if (styleInjected) return;
   styleInjected = true;
   const style = document.createElement('style');
+  style.id = 'mh-notes-style';
   style.textContent = `
-    .mh-notes{display:grid;gap:16px}
+    .mh-notes{display:grid;gap:16px;color:var(--mh-text)}
     .mh-notes .editor{
-      display:flex;gap:10px;padding:10px;border-radius:16px;
-      background:linear-gradient(150deg,rgba(255,255,255,.92),rgba(255,255,255,.64));
-      border:1px solid rgba(255,255,255,.95);box-shadow:0 16px 34px -26px rgba(10,20,31,.5);
+      display:flex;gap:10px;padding:10px;border-radius:var(--mh-radius);
+      background:linear-gradient(150deg,var(--mh-card-a),var(--mh-card-b));
+      border:1px solid var(--mh-glass-border);box-shadow:inset 0 1px 0 var(--mh-inset),var(--mh-shadow);
     }
     .mh-notes input{
       flex:1;min-width:0;border:0;outline:0;background:transparent;
-      font:400 13.5px/1 inherit;color:#0A141F;padding:8px 10px;
+      font:400 13.5px/1 inherit;color:var(--mh-text);padding:8px 10px;
     }
-    .mh-notes input::placeholder{color:#7B8899}
+    .mh-notes input::placeholder{color:var(--mh-text-3)}
     .mh-notes button{
       border:0;cursor:pointer;padding:10px 18px;border-radius:999px;
-      font:600 12.5px/1 inherit;color:#fff;background:#0A141F;
-      transition:transform .3s cubic-bezier(.2,.8,.2,1),box-shadow .3s;
+      font:600 12.5px/1 inherit;color:var(--mh-bg);background:var(--mh-text);
+      transition:transform .3s var(--mh-ease),box-shadow .3s;
     }
-    .mh-notes button:hover{transform:translateY(-1px);box-shadow:0 10px 22px -14px rgba(10,20,31,.8)}
+    .mh-notes button:hover{transform:translateY(-1px);box-shadow:var(--mh-shadow)}
     .mh-notes ul{list-style:none;margin:0;padding:0;display:grid;gap:10px}
     .mh-notes li{
       display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:14px;
-      background:rgba(255,255,255,.68);border:1px solid rgba(10,20,31,.07);
-      font-size:13.5px;color:#0A141F;
-      animation:rise .4s cubic-bezier(.2,.8,.2,1) both;
+      background:var(--mh-soft);border:1px solid var(--mh-line);
+      font-size:13.5px;color:var(--mh-text);
+      animation:rise .4s var(--mh-ease) both;
     }
-    .mh-notes li .time{font:500 10.5px/1 "IBM Plex Mono",monospace;color:#7B8899;flex:0 0 auto}
+    .mh-notes li .time{font:500 10.5px/1 var(--mh-font-m);color:var(--mh-text-3);flex:0 0 auto}
     .mh-notes li .text{flex:1;min-width:0;overflow-wrap:anywhere}
     .mh-notes li .del{
-      border:0;background:transparent;cursor:pointer;color:#7B8899;padding:4px 6px;
+      border:0;background:transparent;cursor:pointer;color:var(--mh-text-3);padding:4px 6px;
       border-radius:8px;font-size:15px;line-height:1;transition:color .25s,background .25s;
     }
-    .mh-notes li .del:hover{color:#E86A2C;background:rgba(232,106,44,.1)}
-    .mh-notes .empty{padding:26px 18px;text-align:center;color:#7B8899;font-size:13px}
+    .mh-notes li .del:hover{color:var(--mh-amber);background:color-mix(in srgb, var(--mh-amber) 10%, transparent)}
+    .mh-notes .empty{padding:26px 18px;text-align:center;color:var(--mh-text-3);font-size:13px}
   `;
   document.head.appendChild(style);
 }

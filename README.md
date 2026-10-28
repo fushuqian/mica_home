@@ -26,6 +26,9 @@ docker compose up -d --build
 │   ├── hello/              # 示例：最小模块
 │   └── notes/              # 示例：带本地数据的模块
 ├── web/index.html          # 宿主外壳页（编译进二进制）
+├── web/docs.html           # 开发文档页 /docs
+├── web/theme.css           # 主题令牌（明/暗两套），宿主与模块共用
+├── web/theme.js            # 主题切换与持久化
 ├── design/                 # 早期 UI 原型存档
 ├── Dockerfile
 └── docker-compose.yml
@@ -96,6 +99,21 @@ export function mount(el, api) {
 | GET | `/api/m/{id}/ui/{path}` | 模块前端静态资源（仅已安装模块可访问） |
 
 安装状态持久化在 `MICA_DATA_DIR/state.json`。
+
+## 主题
+
+宿主提供浅色 / 深色两套主题，默认跟随系统 `prefers-color-scheme`，顶栏按钮可手动切换，选择记在 `localStorage['mica.theme']`。
+
+主题的唯一定义在 `web/theme.css`：所有颜色、圆角、动效都以 `--mh-*` CSS 自定义属性暴露。宿主把当前主题写在 `<html data-theme="light|dark">`，模块只要引用令牌就会自动跟随，不需要任何监听代码。
+
+```css
+.mh-my-module { color: var(--mh-text); background: var(--mh-surface); border: 1px solid var(--mh-line); }
+.mh-my-module button { background: var(--mh-text); color: var(--mh-bg); }
+```
+
+需要把颜色画进 Canvas / 图表时，监听 `window` 上的 `mh:theme` 事件；也可用 `window.MicaTheme.get() / set() / toggle()`。
+
+完整规范见开发文档 `/docs` 的「8 · 主题开发规范」。
 
 ## 配置
 

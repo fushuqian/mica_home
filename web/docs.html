@@ -7,56 +7,48 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/theme.css">
+<script src="/theme.js"></script>
 <style>
-:root{
-  --bg:#EDF1F6; --ink:#0A141F; --ink-2:#39485A; --ink-3:#7B8899;
-  --line:rgba(10,20,31,.09); --teal:#00B39F; --teal-deep:#00796B;
-  --r-md:20px; --r-lg:26px;
-  --shadow:0 18px 40px -26px rgba(10,20,31,.45), 0 2px 10px rgba(10,20,31,.05);
-  --ease:cubic-bezier(.2,.8,.2,1);
-  --font-d:"Bricolage Grotesque","PingFang SC","Microsoft YaHei",sans-serif;
-  --font-b:"IBM Plex Sans","PingFang SC","Microsoft YaHei",sans-serif;
-  --font-m:"IBM Plex Mono","SFMono-Regular",Consolas,monospace;
-}
 *{box-sizing:border-box}
 body{
   margin:0;background:var(--bg);color:var(--ink);
   font-family:var(--font-b);font-size:14.5px;line-height:1.75;
   -webkit-font-smoothing:antialiased;
 }
-::selection{background:rgba(0,179,159,.22)}
+::selection{background:color-mix(in srgb, var(--mh-accent) 22%, transparent)}
 h1,h2,h3{margin:0;font-family:var(--font-d);font-weight:700}
 p{margin:0}
 a{color:var(--teal-deep)}
-code{font-family:var(--font-m);font-size:.88em;background:rgba(0,179,159,.09);color:var(--teal-deep);padding:1px 6px;border-radius:5px}
+code{font-family:var(--font-m);font-size:.88em;background:var(--mh-accent-soft);color:var(--teal-deep);padding:1px 6px;border-radius:5px}
 pre{
   margin:12px 0 0;padding:16px 18px;overflow:auto;border-radius:14px;
-  background:rgba(10,20,31,.92);color:#D7E3EE;
+  background:var(--mh-code-bg);color:var(--mh-code-text);
   font-family:var(--font-m);font-size:12.5px;line-height:1.8;
 }
 pre code{background:none;color:inherit;padding:0}
 
 .scene{position:fixed;inset:0;z-index:-1;overflow:hidden;
-  background:linear-gradient(180deg,#F4F7FA 0%,#E9EFF5 58%,#EFF3F7 100%);}
+  background:linear-gradient(180deg,var(--mh-bg-1) 0%,var(--mh-bg-2) 58%,var(--mh-bg-3) 100%);}
 .scene::before{
   content:"";position:absolute;inset:-20%;
-  background-image:linear-gradient(rgba(10,20,31,.05) 1px,transparent 1px),
-                   linear-gradient(90deg,rgba(10,20,31,.05) 1px,transparent 1px);
+  background-image:linear-gradient(var(--mh-grid) 1px,transparent 1px),
+                   linear-gradient(90deg,var(--mh-grid) 1px,transparent 1px);
   background-size:76px 76px;
   -webkit-mask-image:radial-gradient(ellipse at 50% 10%,#000 0%,rgba(0,0,0,.5) 45%,transparent 78%);
   mask-image:radial-gradient(ellipse at 50% 10%,#000 0%,rgba(0,0,0,.5) 45%,transparent 78%);
 }
 .blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:.7}
-.blob.b1{width:560px;height:560px;left:-160px;top:-200px;background:rgba(0,179,159,.22)}
-.blob.b2{width:480px;height:480px;right:-120px;top:60px;background:rgba(47,107,255,.16)}
+.blob.b1{width:560px;height:560px;left:-160px;top:-200px;background:var(--mh-blob-1)}
+.blob.b2{width:480px;height:480px;right:-120px;top:60px;background:var(--mh-blob-2)}
 
 .topbar{
   position:sticky;top:14px;z-index:60;max-width:1160px;width:calc(100% - 36px);margin:14px auto 0;
   display:flex;align-items:center;gap:22px;padding:9px 10px 9px 18px;border-radius:999px;
-  background:linear-gradient(150deg,rgba(255,255,255,.8),rgba(255,255,255,.58));
+  background:linear-gradient(150deg,var(--mh-glass-a),var(--mh-glass-b));
   -webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%);
-  border:1px solid rgba(255,255,255,.92);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.95), var(--shadow);
+  border:1px solid var(--mh-glass-border);
+  box-shadow:inset 0 1px 0 var(--mh-inset), var(--shadow);
   animation:drop .8s var(--ease) both;
 }
 @keyframes drop{from{opacity:0;transform:translateY(-14px)}to{opacity:1;transform:none}}
@@ -66,15 +58,15 @@ pre code{background:none;color:inherit;padding:0}
 .brand-name span{font-family:var(--font-m);font-size:10px;letter-spacing:.16em;color:var(--ink-3);text-transform:uppercase}
 .topbar .tag{
   font-family:var(--font-m);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
-  color:var(--teal-deep);border:1px solid rgba(0,179,159,.35);background:rgba(0,179,159,.08);
+  color:var(--teal-deep);border:1px solid var(--mh-accent-line);background:var(--mh-accent-soft);
   padding:5px 11px;border-radius:999px;
 }
 .back{
   margin-left:auto;text-decoration:none;color:var(--ink-2);font-size:13px;
   padding:7px 14px;border-radius:999px;border:1px solid var(--line);
-  background:rgba(255,255,255,.6);transition:background .25s,color .25s,transform .35s var(--ease);
+  background:var(--mh-soft);transition:background .25s,color .25s,transform .35s var(--ease);
 }
-.back:hover{background:#fff;color:var(--ink);transform:translateX(-2px)}
+.back:hover{background:var(--mh-surface);color:var(--ink);transform:translateX(-2px)}
 
 .layout{
   max-width:1160px;margin:0 auto;padding:46px 22px 90px;
@@ -89,7 +81,7 @@ pre code{background:none;color:inherit;padding:0}
   display:block;padding:6px 10px;border-radius:9px;font-size:13px;color:var(--ink-2);
   text-decoration:none;border-left:2px solid transparent;transition:all .25s var(--ease);
 }
-.toc a:hover{background:rgba(255,255,255,.6);color:var(--ink);border-left-color:rgba(0,179,159,.45)}
+.toc a:hover{background:var(--mh-hover);color:var(--ink);border-left-color:var(--mh-accent-line)}
 
 article{animation:rise .9s var(--ease) .1s both;min-width:0}
 @keyframes rise{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
@@ -98,20 +90,20 @@ article{animation:rise .9s var(--ease) .1s both;min-width:0}
   font-family:var(--font-m);font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;
   color:var(--teal-deep);display:inline-flex;align-items:center;gap:8px;margin-bottom:14px;
 }
-.doc-head .eyebrow i{width:6px;height:6px;border-radius:2px;background:var(--teal);box-shadow:0 0 0 4px rgba(0,179,159,.14)}
+.doc-head .eyebrow i{width:6px;height:6px;border-radius:2px;background:var(--teal);box-shadow:0 0 0 4px color-mix(in srgb, var(--mh-accent) 14%, transparent)}
 .doc-head h1{font-size:clamp(30px,4.4vw,46px);font-weight:800;letter-spacing:-.035em;line-height:1.08}
 .doc-head p{margin-top:12px;color:var(--ink-2);max-width:60ch}
 
 section{
   padding:22px 24px;border-radius:var(--r-md);margin-bottom:18px;
-  background:linear-gradient(152deg,rgba(255,255,255,.86),rgba(255,255,255,.56));
-  border:1px solid rgba(255,255,255,.92);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.95), var(--shadow);
+  background:linear-gradient(152deg,var(--mh-card-a),var(--mh-card-b));
+  border:1px solid var(--mh-glass-border);
+  box-shadow:inset 0 1px 0 var(--mh-inset), var(--shadow);
 }
 section h2{font-size:19px;letter-spacing:-.02em;display:flex;align-items:center;gap:10px}
 section h2 .n{
   font-family:var(--font-m);font-size:10.5px;font-weight:500;color:var(--teal-deep);
-  background:rgba(0,179,159,.1);border-radius:999px;padding:3px 9px;letter-spacing:.06em;
+  background:var(--mh-accent-soft);border-radius:999px;padding:3px 9px;letter-spacing:.06em;
 }
 section h3{font-size:14.5px;margin-top:22px;color:var(--ink)}
 section p{margin-top:9px;color:var(--ink-2);font-size:13.8px}
@@ -127,21 +119,22 @@ tbody tr:last-child td{border-bottom:0}
 td.mono{font-family:var(--font-m);font-size:12px;color:var(--ink-2)}
 
 .note{
-  margin-top:14px;padding:12px 14px;border-radius:12px;font-size:13px;color:#6B4A12;
-  background:rgba(232,106,44,.08);border:1px solid rgba(232,106,44,.22);
+  margin-top:14px;padding:12px 14px;border-radius:12px;font-size:13px;color:var(--mh-warn-text);
+  background:var(--mh-warn-bg);border:1px solid var(--mh-warn-line);
 }
-.note b{color:#8A3C13}
+.note b{color:var(--mh-warn-text)}
+.note code{background:color-mix(in srgb, var(--mh-amber) 14%, transparent);color:var(--mh-warn-text)}
 
 /* 接口试跑 */
 .try{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;align-items:center}
 .try button{
-  border:1px solid var(--line);background:rgba(255,255,255,.7);color:var(--ink-2);
+  border:1px solid var(--line);background:var(--mh-soft);color:var(--ink-2);
   padding:8px 14px;border-radius:999px;font-size:12.5px;cursor:pointer;
   transition:all .25s var(--ease);
 }
-.try button:hover{border-color:rgba(0,179,159,.5);color:var(--ink);transform:translateY(-1px)}
+.try button:hover{border-color:var(--mh-accent-line);color:var(--ink);transform:translateY(-1px)}
 .try select{
-  border:1px solid var(--line);background:rgba(255,255,255,.7);border-radius:999px;
+  border:1px solid var(--line);background:var(--mh-soft);border-radius:999px;
   padding:8px 12px;font-size:12.5px;color:var(--ink-2);outline:0;
 }
 .try .status{font-family:var(--font-m);font-size:11.5px;color:var(--ink-3);margin-left:4px}
@@ -151,7 +144,7 @@ td.mono{font-family:var(--font-m);font-size:12px;color:var(--ink-2)}
   .layout{grid-template-columns:1fr;padding-top:30px;gap:22px}
   .toc{position:static;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
   .toc h4{width:100%;margin-bottom:4px}
-  .toc a{border-left:0;border:1px solid var(--line);background:rgba(255,255,255,.5);padding:5px 11px;border-radius:999px;font-size:12.5px}
+  .toc a{border-left:0;border:1px solid var(--line);background:var(--mh-soft);padding:5px 11px;border-radius:999px;font-size:12.5px}
 }
 @media (max-width:640px){
   .topbar{gap:12px;padding:8px 8px 8px 14px}
@@ -169,15 +162,19 @@ td.mono{font-family:var(--font-m);font-size:12px;color:var(--ink-2)}
 <header class="topbar">
   <a class="brand" href="/">
     <svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true">
-      <rect x="2.5" y="2.5" width="11" height="11" rx="3.5" fill="#0A141F"/>
-      <rect x="16.5" y="2.5" width="11" height="11" rx="3.5" fill="#00B39F"/>
-      <rect x="2.5" y="16.5" width="11" height="11" rx="3.5" stroke="#0A141F" stroke-width="1.4"/>
-      <rect x="16.5" y="16.5" width="11" height="11" rx="3.5" fill="#0A141F" opacity=".22"/>
+      <rect x="2.5" y="2.5" width="11" height="11" rx="3.5" fill="currentColor"/>
+      <rect x="16.5" y="2.5" width="11" height="11" rx="3.5" fill="var(--mh-accent)"/>
+      <rect x="2.5" y="16.5" width="11" height="11" rx="3.5" stroke="currentColor" stroke-width="1.4"/>
+      <rect x="16.5" y="16.5" width="11" height="11" rx="3.5" fill="currentColor" opacity=".22"/>
     </svg>
     <span class="brand-name"><b>Mica Home</b><span>Modular Shell</span></span>
   </a>
   <span class="tag">开发文档</span>
   <a class="back" href="/">← 返回模块仓库</a>
+  <button class="theme-toggle" data-theme-toggle type="button" aria-pressed="false" aria-label="切换主题" title="切换主题">
+    <svg class="i-sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3L17 7M7 17l-1.7 1.7"/></svg>
+    <svg class="i-moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.3A8.6 8.6 0 019.7 3.5a8.7 8.7 0 1010.8 10.8z"/></svg>
+  </button>
 </header>
 
 <div class="layout">
@@ -190,6 +187,7 @@ td.mono{font-family:var(--font-m);font-size:12px;color:var(--ink-2)}
     <a href="#api">5 · 宿主 API</a>
     <a href="#debug">6 · 本地开发</a>
     <a href="#roadmap">7 · 能力边界</a>
+    <a href="#theme">8 · 主题开发规范</a>
   </aside>
 
   <article>
@@ -322,6 +320,143 @@ docker logs -f mica-home
         <li><b>签名校验</b>：卡片上的安装状态不代表来源可信。</li>
         <li><b>权限拦截</b>：<code>permissions</code> 只做展示，不会阻止任何调用。</li>
         <li><b>后端运行时</b>：WASM 后端与 PostgreSQL 存储仍在计划中。</li>
+      </ul>
+    </section>
+
+    <section id="theme">
+      <h2><span class="n">08</span>主题开发规范</h2>
+      <p>宿主用一套 CSS 自定义属性（令牌）承载全部颜色、圆角与动效。主题有两个状态：浅色与深色。宿主把当前状态写在 <code>&lt;html data-theme="light|dark"&gt;</code> 上，模块只要引用令牌，切换主题时会自动跟随，不需要写任何监听代码。</p>
+
+      <h3>8.1 三条原则</h3>
+      <ul class="plain">
+        <li><b>只读令牌，不写色值。</b>模块内不允许出现 <code>#fff</code>、<code>#0A141F</code>、<code>rgba(...)</code> 这类硬编码颜色。</li>
+        <li><b>语义优先。</b>用“文字二级、卡片表面、分隔线”这类语义令牌，而不是“浅灰、白、深蓝”。深色下同一令牌会自动换成对应色。</li>
+        <li><b>不重定义宿主令牌。</b>模块不得在自身作用域内改写 <code>--mh-*</code>，否则会污染整页。</li>
+      </ul>
+
+      <h3>8.2 命名规则</h3>
+      <table>
+        <thead><tr><th>范围</th><th>规则</th><th>示例</th></tr></thead>
+        <tbody>
+          <tr><td>宿主令牌</td><td><code>--mh-*</code>，模块只能引用</td><td><code>var(--mh-accent)</code></td></tr>
+          <tr><td>模块自有变量</td><td><code>--&lt;模块id&gt;-*</code></td><td><code>--notes-gap: 12px</code></td></tr>
+          <tr><td>模块样式类名</td><td><code>.mh-&lt;模块id&gt;</code> 作为根，内部类再加前缀</td><td><code>.mh-notes-list</code></td></tr>
+          <tr><td>样式节点</td><td>一个模块只注入一个 <code>&lt;style id="mh-&lt;id&gt;-style"&gt;</code></td><td><code>mh-notes-style</code></td></tr>
+        </tbody>
+      </table>
+
+      <h3>8.3 最小令牌集</h3>
+      <p>下面这些足够覆盖绝大多数模块界面，颜色值在 <code>/theme.css</code> 中统一维护。</p>
+      <table>
+        <thead><tr><th>令牌</th><th>用途</th></tr></thead>
+        <tbody>
+          <tr><td><code>--mh-bg</code> / <code>--mh-bg-1..3</code></td><td>页面背景与背景层级</td></tr>
+          <tr><td><code>--mh-text</code> / <code>-2</code> / <code>-3</code></td><td>正文、次级文字、弱提示文字</td></tr>
+          <tr><td><code>--mh-line</code> / <code>--mh-line-strong</code></td><td>分隔线、边框、更重的边框</td></tr>
+          <tr><td><code>--mh-surface</code> / <code>--mh-card-a</code> / <code>--mh-card-b</code></td><td>面板底色、卡片渐变两端</td></tr>
+          <tr><td><code>--mh-soft</code> / <code>--mh-hover</code></td><td>按钮静止底、悬停底</td></tr>
+          <tr><td><code>--mh-glass-border</code> / <code>--mh-inset</code></td><td>毛玻璃边框、顶部内高光</td></tr>
+          <tr><td><code>--mh-accent</code> / <code>-deep</code> / <code>-line</code> / <code>-soft</code></td><td>强调色：填充、深色文字、边框、淡底</td></tr>
+          <tr><td><code>--mh-blue</code> / <code>--mh-amber</code></td><td>第二强调色、警示色</td></tr>
+          <tr><td><code>--mh-scrim</code></td><td>遮罩层（弹层、模态）</td></tr>
+          <tr><td><code>--mh-shadow</code> / <code>--mh-shadow-hi</code></td><td>常规阴影、悬浮阴影</td></tr>
+          <tr><td><code>--mh-radius</code> / <code>--mh-radius-lg</code></td><td>圆角</td></tr>
+          <tr><td><code>--mh-ease</code></td><td>统一缓动函数</td></tr>
+          <tr><td><code>--mh-font-d</code> / <code>-b</code> / <code>-m</code></td><td>标题、正文、等宽字体</td></tr>
+          <tr><td><code>--mh-code-bg</code> / <code>--mh-code-text</code></td><td>代码块底色与文字</td></tr>
+          <tr><td><code>--mh-warn-text</code> / <code>-bg</code> / <code>-line</code></td><td>警告提示三件套</td></tr>
+        </tbody>
+      </table>
+
+      <h3>8.4 允许与禁止</h3>
+      <table>
+        <thead><tr><th>允许</th><th>禁止</th></tr></thead>
+        <tbody>
+          <tr><td>颜色、背景、边框、阴影、圆角、字体全部引用令牌</td><td>硬编码 <code>#fff</code>、<code>#333</code>、<code>rgba(0,0,0,.5)</code></td></tr>
+          <tr><td>半透明叠加用 <code>color-mix(in srgb, var(--mh-accent) 15%, transparent)</code></td><td>假设页面一定是浅色，直接写白底黑字</td></tr>
+          <tr><td>强调色底上的文字用 <code>var(--mh-bg)</code></td><td>强调色底上用 <code>#fff</code>（深色下会糊成一片）</td></tr>
+          <tr><td>模块自有尺寸、间距、布局用固定值</td><td>覆盖 <code>:root</code> 或重定义 <code>--mh-*</code></td></tr>
+          <tr><td>需要 JS 取色时读 <code>getComputedStyle</code> 上的令牌</td><td>把色值复制进 JS 常量后再用</td></tr>
+        </tbody>
+      </table>
+      <div class="note"><b>对比度</b>：正文与背景的对比度不得低于 4.5:1。真拿不准时，直接复用宿主现有的令牌组合（<code>--mh-text</code> 配 <code>--mh-bg</code>、<code>--mh-bg</code> 配 <code>--mh-accent</code>），不要再自创。</div>
+
+      <h3>8.5 样式注入约定</h3>
+      <pre><code>const CSS = `
+.mh-notes {
+  color: var(--mh-text);
+  background: transparent;
+}
+.mh-notes-input {
+  background: var(--mh-soft);
+  border: 1px solid var(--mh-line);
+  color: var(--mh-text);
+  border-radius: var(--mh-radius);
+}
+.mh-notes-input::placeholder { color: var(--mh-text-3); }
+.mh-notes-input:focus {
+  outline: none;
+  border-color: var(--mh-accent-line);
+  background: var(--mh-surface);
+}
+.mh-notes-btn {
+  background: var(--mh-text);
+  color: var(--mh-bg);
+  border: 0;
+  border-radius: 999px;
+  transition: background .3s, transform .35s var(--mh-ease);
+}
+.mh-notes-btn:hover { transform: translateY(-1px); }
+.mh-notes-item { border-bottom: 1px solid var(--mh-line); }
+.mh-notes-warn {
+  color: var(--mh-warn-text);
+  background: var(--mh-warn-bg);
+  border: 1px solid var(--mh-warn-line);
+}
+`;
+
+function injectStyle(id, css) {
+  const tag = 'mh-' + id + '-style';
+  if (document.getElementById(tag)) return;
+  const el = document.createElement('style');
+  el.id = tag;
+  el.textContent = css;
+  document.head.appendChild(el);
+}
+
+export function mount(el, api) {
+  injectStyle(api.id, CSS);
+  el.innerHTML = `&lt;div class="mh-notes"&gt;…&lt;/div&gt;`;
+  return () =&gt; { el.innerHTML = ''; };
+}</code></pre>
+      <p>模块面板的容器已经由宿主给出背景与圆角，模块根节点保持 <code>transparent</code> 即可，不要再套一层实色底。</p>
+
+      <h3>8.6 需要 JS 感知切换时</h3>
+      <p>纯 CSS 场景不需要做任何事：令牌变了，样式自动重算。只有当你要把颜色画进 Canvas、图表库或内联 SVG 时，才监听主题事件。</p>
+      <pre><code>const onTheme = (e) =&gt; drawChart(e.detail.theme); // 'light' | 'dark'
+window.addEventListener('mh:theme', onTheme);
+onTheme({ detail: { theme: document.documentElement.dataset.theme } });
+
+// 卸载时记得移除
+return () =&gt; window.removeEventListener('mh:theme', onTheme);</code></pre>
+      <p>也可以直接读当前值：<code>window.MicaTheme.get()</code>、<code>window.MicaTheme.toggle()</code>。偏好存在 <code>localStorage['mica.theme']</code>，首次访问跟随系统 <code>prefers-color-scheme</code>。</p>
+
+      <h3>8.7 自检清单</h3>
+      <ul class="plain">
+        <li>模块目录里搜索 <code>#[0-9a-fA-F]{3,8}</code> 与 <code>rgba(</code>，结果应为零（SVG 图标用 <code>currentColor</code>）。</li>
+        <li>浅色与深色各看一遍：文字不消失、边框不消失、图标看得清、阴影不过分。</li>
+        <li>强调色按钮上的文字用的是 <code>var(--mh-bg)</code>，不是 <code>#fff</code>。</li>
+        <li>没有在模块内定义或覆盖 <code>--mh-*</code>。</li>
+        <li>样式只注入一次，重复打开面板不会叠加 <code>&lt;style&gt;</code>。</li>
+        <li>卸载函数里清理了 <code>mh:theme</code> 监听与定时器。</li>
+      </ul>
+
+      <h3>8.8 验证方法</h3>
+      <ul class="plain">
+        <li>点宿主顶栏的主题按钮切换，确认模块面板即时跟随，无需刷新。</li>
+        <li>切到深色后刷新页面，确认偏好被记住（<code>mica.theme</code>）。</li>
+        <li>清掉 <code>mica.theme</code> 后，DevTools 里把 <code>prefers-color-scheme</code> 设为 <code>dark</code>，确认首次访问即深色。</li>
+        <li>切主题时打开控制台，确认没有样式或脚本报错。</li>
       </ul>
     </section>
   </article>

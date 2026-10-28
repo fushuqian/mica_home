@@ -1,0 +1,184 @@
+/* Mica Home 主题令牌 —— 宿主与模块共用的唯一颜色来源。
+   模块适配规则见 /docs 的「主题开发规范」。 */
+
+:root {
+  color-scheme: light;
+
+  /* 背景层级 */
+  --mh-bg: #EDF1F6;
+  --mh-bg-1: #F4F7FA;
+  --mh-bg-2: #E9EFF5;
+  --mh-bg-3: #EFF3F7;
+
+  /* 文字层级 */
+  --mh-text: #0A141F;
+  --mh-text-2: #39485A;
+  --mh-text-3: #7B8899;
+
+  /* 线条 */
+  --mh-line: rgba(10, 20, 31, .09);
+  --mh-line-strong: rgba(10, 20, 31, .14);
+
+  /* 表面与玻璃 */
+  --mh-surface: rgba(255, 255, 255, .86);
+  --mh-glass-a: rgba(255, 255, 255, .78);
+  --mh-glass-b: rgba(255, 255, 255, .58);
+  --mh-glass-solid: rgba(255, 255, 255, .92);
+  --mh-card-a: rgba(255, 255, 255, .84);
+  --mh-card-b: rgba(255, 255, 255, .46);
+  --mh-glass-border: rgba(255, 255, 255, .92);
+  --mh-inset: rgba(255, 255, 255, .95);
+  --mh-hover: rgba(255, 255, 255, .62);
+  --mh-soft: rgba(255, 255, 255, .55);
+  --mh-solid: #FFFFFF;
+
+  /* 强调色 */
+  --mh-accent: #00B39F;
+  --mh-accent-deep: #00796B;
+  --mh-accent-line: rgba(0, 179, 159, .45);
+  --mh-accent-soft: rgba(0, 179, 159, .08);
+  --mh-blue: #2F6BFF;
+  --mh-amber: #E86A2C;
+
+  /* 阴影与遮罩 */
+  --mh-scrim: rgba(10, 20, 31, .18);
+  --mh-shadow: 0 18px 40px -26px rgba(10, 20, 31, .45), 0 2px 10px rgba(10, 20, 31, .05);
+  --mh-shadow-hi: 0 34px 60px -30px rgba(10, 20, 31, .5), 0 6px 18px rgba(10, 20, 31, .07);
+
+  /* 背景装饰 */
+  --mh-grid: rgba(10, 20, 31, .055);
+  --mh-noise-opacity: .045;
+  --mh-noise-blend: multiply;
+  --mh-blob-1: rgba(0, 179, 159, .26);
+  --mh-blob-2: rgba(47, 107, 255, .18);
+  --mh-blob-3: rgba(232, 106, 44, .10);
+
+  /* 代码与提示 */
+  --mh-code-bg: rgba(10, 20, 31, .92);
+  --mh-code-text: #D7E3EE;
+  --mh-warn-text: #8A3C13;
+  --mh-warn-bg: rgba(232, 106, 44, .08);
+  --mh-warn-line: rgba(232, 106, 44, .22);
+
+  /* 尺寸与动效 */
+  --mh-radius: 20px;
+  --mh-radius-lg: 26px;
+  --mh-ease: cubic-bezier(.2, .8, .2, 1);
+
+  /* 字体 */
+  --mh-font-d: "Bricolage Grotesque", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --mh-font-b: "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --mh-font-m: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+
+  /* 旧变量名别名，供历史样式引用 */
+  --bg: var(--mh-bg);
+  --ink: var(--mh-text);
+  --ink-2: var(--mh-text-2);
+  --ink-3: var(--mh-text-3);
+  --line: var(--mh-line);
+  --glass: var(--mh-glass-b);
+  --glass-2: var(--mh-glass-a);
+  --teal: var(--mh-accent);
+  --teal-deep: var(--mh-accent-deep);
+  --blue: var(--mh-blue);
+  --amber: var(--mh-amber);
+  --r-md: var(--mh-radius);
+  --r-lg: var(--mh-radius-lg);
+  --shadow: var(--mh-shadow);
+  --shadow-hi: var(--mh-shadow-hi);
+  --ease: var(--mh-ease);
+  --font-d: var(--mh-font-d);
+  --font-b: var(--mh-font-b);
+  --font-m: var(--mh-font-m);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --mh-bg: #0B1117;
+  --mh-bg-1: #101821;
+  --mh-bg-2: #0E1620;
+  --mh-bg-3: #111A24;
+
+  --mh-text: #E9EFF6;
+  --mh-text-2: #A9B7C6;
+  --mh-text-3: #6F7E8D;
+
+  --mh-line: rgba(255, 255, 255, .10);
+  --mh-line-strong: rgba(255, 255, 255, .18);
+
+  --mh-surface: rgba(30, 40, 52, .78);
+  --mh-glass-a: rgba(28, 38, 50, .72);
+  --mh-glass-b: rgba(20, 28, 38, .55);
+  --mh-glass-solid: rgba(24, 33, 44, .90);
+  --mh-card-a: rgba(30, 40, 52, .78);
+  --mh-card-b: rgba(22, 30, 40, .55);
+  --mh-glass-border: rgba(255, 255, 255, .10);
+  --mh-inset: rgba(255, 255, 255, .06);
+  --mh-hover: rgba(255, 255, 255, .08);
+  --mh-soft: rgba(255, 255, 255, .05);
+  --mh-solid: #1A2431;
+
+  --mh-accent: #34D6C2;
+  --mh-accent-deep: #4FE3D0;
+  --mh-accent-line: rgba(52, 214, 194, .50);
+  --mh-accent-soft: rgba(52, 214, 194, .12);
+  --mh-blue: #5C8CFF;
+  --mh-amber: #FF8A4C;
+
+  --mh-scrim: rgba(0, 0, 0, .50);
+  --mh-shadow: 0 18px 40px -26px rgba(0, 0, 0, .75), 0 2px 10px rgba(0, 0, 0, .35);
+  --mh-shadow-hi: 0 34px 60px -30px rgba(0, 0, 0, .85), 0 6px 18px rgba(0, 0, 0, .40);
+
+  --mh-grid: rgba(255, 255, 255, .045);
+  --mh-noise-opacity: .05;
+  --mh-noise-blend: overlay;
+  --mh-blob-1: rgba(52, 214, 194, .16);
+  --mh-blob-2: rgba(92, 140, 255, .14);
+  --mh-blob-3: rgba(255, 138, 76, .08);
+
+  --mh-code-bg: rgba(0, 0, 0, .55);
+  --mh-code-text: #D9E4EF;
+  --mh-warn-text: #F0A878;
+  --mh-warn-bg: rgba(232, 106, 44, .14);
+  --mh-warn-line: rgba(232, 106, 44, .35);
+}
+
+body {
+  transition: background-color .35s var(--mh-ease), color .35s var(--mh-ease);
+}
+
+/* 主题切换按钮（宿主两页共用） */
+.theme-toggle {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+  border: 1px solid var(--mh-line);
+  background: var(--mh-soft);
+  color: var(--mh-text-2);
+  transition: background .25s, color .25s, border-color .25s, transform .35s var(--mh-ease);
+}
+.theme-toggle:hover {
+  background: var(--mh-surface);
+  color: var(--mh-text);
+  border-color: var(--mh-accent-line);
+  transform: rotate(-14deg);
+}
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--mh-accent-line);
+  outline-offset: 2px;
+}
+.theme-toggle svg { display: none; }
+.theme-toggle .i-sun { display: block; }
+:root[data-theme="dark"] .theme-toggle .i-sun { display: none; }
+:root[data-theme="dark"] .theme-toggle .i-moon { display: block; }
+
+@media (prefers-reduced-motion: reduce) {
+  body { transition: none; }
+  .theme-toggle { transition: none; }
+}
