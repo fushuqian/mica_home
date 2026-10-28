@@ -13,6 +13,8 @@
 
 ### 修复
 - 模块舞台打开后永久停留在"正在加载模块前端…"：`openModule` 先取 token 再调用会自增 token 的 `cleanupStage()`，导致守卫误判提前返回。改为先失效再取 token。
+- 顶栏移除无实际用途的"模块 API"链接（直接打开原始 JSON，没有可用界面）。
+- 模块卡片移除悬停时白光扫过效果，保留上浮、阴影与边框高亮。
 
 ### 早前
 - 确认架构方向：Go 宿主 + WASM（wazero）后端模块 + 远程 ESM 前端 + PostgreSQL schema-per-module + OCI 模块仓库，Docker 单容器分发。
