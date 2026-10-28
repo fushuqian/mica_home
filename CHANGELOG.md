@@ -10,6 +10,7 @@
 - 新增宿主外壳页 `web/index.html`：沿用浅色毛玻璃视觉，数据全部来自宿主 API，含筛选、搜索、安装/卸载与模块舞台弹层。
 - 新增 `Dockerfile`（多阶段，容器内编译，本地无需 Go）+ `docker-compose.yml` + `README.md` + `.gitignore`。
 - 早期 UI 原型 `index.html` 归档到 `design/marketplace-prototype.html`。
+- 新增开发文档页 `/docs`（`web/docs.html`）：职责边界、模块结构、manifest 字段表、前端契约与 api 说明、宿主 API 表 + 接口试跑、本地开发流程、能力边界；顶栏新增"开发文档"入口。
 
 ### 修复
 - 模块舞台打开后永久停留在"正在加载模块前端…"：`openModule` 先取 token 再调用会自增 token 的 `cleanupStage()`，导致守卫误判提前返回。改为先失效再取 token。

@@ -44,8 +44,21 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/modules/{id}/uninstall", s.uninstall)
 	mux.HandleFunc("GET /api/m/{id}/info", s.moduleInfo)
 	mux.HandleFunc("GET /api/m/{id}/ui/{path...}", s.moduleAsset)
+	mux.HandleFunc("GET /docs", s.docs)
 	mux.Handle("GET /", http.FileServer(http.FS(s.assets)))
 	return logRequests(mux)
+}
+
+// docs 提供模块开发文档页。
+func (s *Server) docs(w http.ResponseWriter, r *http.Request) {
+	data, err := fs.ReadFile(s.assets, "docs.html")
+	if err != nil {
+		http.Error(w, "文档未找到", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Write(data)
 }
 
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
