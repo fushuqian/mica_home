@@ -46,6 +46,8 @@ volumes:
   mica-modules:
 ```
 
+> 需要给 Amane 等模块提供媒体目录时，把宿主机真实路径加进服务的 `volumes`；仓库自带的 `docker-compose.yml` 已预留 `./media`、`./downloads` 作为示例，按实际 NAS 路径修改即可。
+
 ### 方式二：从 GitHub 源码构建
 
 ```bash

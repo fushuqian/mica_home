@@ -17,6 +17,9 @@ services:
       - ./modules:/app/modules
       # 安装状态等运行数据
       - mica-data:/data
+      # Amane 模块：片库与下载库（按实际 NAS 路径改成宿主机目录）
+      - ./media:/media
+      - ./downloads:/downloads
     restart: unless-stopped
 
 volumes:
