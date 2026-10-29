@@ -17,3 +17,6 @@ func killGroup(cmd *exec.Cmd, force bool) {
 	}
 	_ = cmd.Process.Kill()
 }
+
+// reapZombies 在非 Linux 平台无需处理。
+func reapZombies() {}

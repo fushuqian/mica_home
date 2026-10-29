@@ -32,6 +32,7 @@ const (
 	maxSidecarBytes      = 128 << 20
 	maxArchiveEntryBytes = 128 << 20
 	maxArchiveEntryCount = 1000
+	logBackupCount       = 2
 )
 
 var idPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{1,31}$`)
@@ -92,8 +93,9 @@ type View struct {
 }
 
 type state struct {
-	Enabled   []string `json:"enabled"`
-	Installed []string `json:"installed,omitempty"` // 旧版本字段，仅用于迁移
+	Enabled   []string          `json:"enabled"`
+	Installed []string          `json:"installed,omitempty"` // 旧版本字段，仅用于迁移
+	Confirmed map[string]string `json:"confirmed,omitempty"` // 模块 ID → sidecar 权限指纹
 }
 
 // Registry 管理模块目录扫描结果与启用集合。
@@ -104,6 +106,7 @@ type Registry struct {
 	statePath string
 	modules   map[string]*Module
 	enabled   map[string]bool
+	confirmed map[string]string
 	warnings  []string
 	fresh     bool
 }
@@ -118,6 +121,7 @@ func NewRegistry(dir, statePath string) *Registry {
 		statePath: statePath,
 		modules:   make(map[string]*Module),
 		enabled:   make(map[string]bool),
+		confirmed: make(map[string]string),
 	}
 	if _, err := os.Stat(statePath); errors.Is(err, os.ErrNotExist) {
 		r.fresh = true
@@ -244,7 +248,60 @@ func (r *Registry) Disable(id string) error {
 	return r.saveState()
 }
 
-// Remove 卸载模块：删除模块目录并清除启用状态。
+// sidecarFingerprint 由版本、文件哈希与权限声明共同决定；任一变化都需要重新确认。
+func (m *Module) sidecarFingerprint() string {
+	if m.Sidecar == nil {
+		return ""
+	}
+	keys := make([]string, 0, len(m.Sidecar.SHA256))
+	for k := range m.Sidecar.SHA256 {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	h := sha256.New()
+	fmt.Fprintf(h, "%s@%s\n", m.ID, m.Version)
+	for _, k := range keys {
+		fmt.Fprintf(h, "%s=%s\n", k, strings.ToLower(m.Sidecar.SHA256[k]))
+	}
+	for _, p := range m.Sidecar.Permissions {
+		fmt.Fprintf(h, "perm=%s\n", p)
+	}
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+// RequireConfirm 返回尚未确认的 sidecar 指纹；无需确认时返回空字符串。
+func (r *Registry) RequireConfirm(id string) string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	m, ok := r.modules[id]
+	if !ok || m.Sidecar == nil || len(m.Sidecar.Permissions) == 0 {
+		return ""
+	}
+	fp := m.sidecarFingerprint()
+	if r.confirmed[id] == fp {
+		return ""
+	}
+	return fp
+}
+
+// Confirm 记录 sidecar 权限确认，返回本次确认的指纹。
+func (r *Registry) Confirm(id string) (string, error) {
+	r.mu.Lock()
+	m, ok := r.modules[id]
+	if !ok {
+		r.mu.Unlock()
+		return "", ErrNotFound
+	}
+	fp := ""
+	if m.Sidecar != nil {
+		fp = m.sidecarFingerprint()
+		r.confirmed[id] = fp
+	}
+	r.mu.Unlock()
+	return fp, r.saveState()
+}
+
+// Remove 卸载模块：删除模块目录、sidecar、日志与 socket，保留非空的用户数据。
 func (r *Registry) Remove(id string) error {
 	r.installMu.Lock()
 	defer r.installMu.Unlock()
@@ -259,43 +316,60 @@ func (r *Registry) Remove(id string) error {
 	if err := os.RemoveAll(r.SidecarDir(id)); err != nil {
 		return fmt.Errorf("删除 sidecar 目录失败: %w", err)
 	}
+	if m.Sidecar != nil && m.Sidecar.SocketName != "" {
+		os.Remove(filepath.Join(r.RunDir(), m.Sidecar.SocketName))
+	}
+	for i := 0; i <= logBackupCount; i++ {
+		name := filepath.Join(r.LogDir(), id+".log")
+		if i > 0 {
+			name = fmt.Sprintf("%s.%d", name, i)
+		}
+		os.Remove(name)
+	}
+	if entries, err := os.ReadDir(r.ModuleDataDir(id)); err == nil && len(entries) == 0 {
+		os.Remove(r.ModuleDataDir(id))
+	}
 
 	r.mu.Lock()
 	delete(r.modules, id)
 	delete(r.enabled, id)
+	delete(r.confirmed, id)
 	r.mu.Unlock()
 	return r.saveState()
 }
 
-// InstallArchive 从 zip 包安装模块并启用。包根必须含 manifest.json 与 frontend/，
+// InstallArchiveFile 从磁盘上的 zip 包安装模块。包根必须含 manifest.json 与 frontend/，
 // 可选 sidecar/。frontend 进入模块目录，sidecar 进入 /data/sidecar/<id>。
-func (r *Registry) InstallArchive(data []byte) (*Module, error) {
+// 同 ID 且版本不同时执行升级，失败回滚旧版本；返回 upgraded 表示是否为升级。
+// 安装成功后不自动启用，由调用方决定。
+func (r *Registry) InstallArchiveFile(zipPath string) (*Module, bool, error) {
 	r.installMu.Lock()
 	defer r.installMu.Unlock()
 
-	if len(data) == 0 {
-		return nil, errors.New("模块包为空")
-	}
-	if len(data) > maxArchiveBytes {
-		return nil, fmt.Errorf("模块包超过 %d MB", maxArchiveBytes>>20)
-	}
-	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	zr, err := zip.OpenReader(zipPath)
 	if err != nil {
-		return nil, fmt.Errorf("不是有效的 zip 包: %w", err)
+		return nil, false, fmt.Errorf("不是有效的 zip 包: %w", err)
 	}
+	defer zr.Close()
+	if len(zr.File) == 0 {
+		return nil, false, errors.New("模块包为空")
+	}
+	return r.install(&zr.Reader)
+}
 
+func (r *Registry) install(zr *zip.Reader) (*Module, bool, error) {
 	dataRoot := r.DataRoot()
 	if err := os.MkdirAll(filepath.Join(dataRoot, "tmp"), 0o755); err != nil {
-		return nil, fmt.Errorf("创建数据目录失败: %w", err)
+		return nil, false, fmt.Errorf("创建数据目录失败: %w", err)
 	}
 	moduleTmp, err := os.MkdirTemp(r.dir, ".install-*")
 	if err != nil {
-		return nil, fmt.Errorf("创建临时目录失败: %w", err)
+		return nil, false, fmt.Errorf("创建临时目录失败: %w", err)
 	}
 	sideTmp, err := os.MkdirTemp(filepath.Join(dataRoot, "tmp"), "sidecar-*")
 	if err != nil {
 		os.RemoveAll(moduleTmp)
-		return nil, fmt.Errorf("创建临时目录失败: %w", err)
+		return nil, false, fmt.Errorf("创建临时目录失败: %w", err)
 	}
 	defer func() {
 		if moduleTmp != "" {
@@ -307,57 +381,123 @@ func (r *Registry) InstallArchive(data []byte) (*Module, error) {
 	}()
 
 	if err := extractZip(zr, moduleTmp, sideTmp); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	m, err := load(moduleTmp)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if m.Sidecar != nil {
 		if err := verifySidecar(m.Sidecar, sideTmp); err != nil {
-			return nil, err
+			return nil, false, err
 		}
-	}
-	if _, ok := r.Get(m.ID); ok {
-		return nil, fmt.Errorf("%w: %s", ErrAlreadyExists, m.ID)
 	}
 
 	moduleTarget := filepath.Join(r.dir, m.ID)
 	sideTarget := r.SidecarDir(m.ID)
+
+	if existing, ok := r.Get(m.ID); ok {
+		if existing.Version == m.Version {
+			return nil, false, fmt.Errorf("%w: %s v%s", ErrAlreadyExists, m.ID, m.Version)
+		}
+		return r.upgrade(m, existing, moduleTmp, sideTmp, moduleTarget, sideTarget)
+	}
+
 	if _, err := os.Stat(moduleTarget); err == nil {
-		return nil, fmt.Errorf("%w: %s", ErrAlreadyExists, m.ID)
+		return nil, false, fmt.Errorf("%w: %s", ErrAlreadyExists, m.ID)
 	}
 	if m.Sidecar != nil {
 		if _, err := os.Stat(sideTarget); err == nil {
-			return nil, fmt.Errorf("%w: sidecar %s", ErrAlreadyExists, m.ID)
+			return nil, false, fmt.Errorf("%w: sidecar %s", ErrAlreadyExists, m.ID)
 		}
 	}
 	if err := os.Rename(moduleTmp, moduleTarget); err != nil {
-		return nil, fmt.Errorf("写入模块目录失败: %w", err)
+		return nil, false, fmt.Errorf("写入模块目录失败: %w", err)
 	}
 	moduleTmp = ""
 	if m.Sidecar != nil {
 		if err := os.MkdirAll(filepath.Dir(sideTarget), 0o755); err != nil {
 			os.RemoveAll(moduleTarget)
-			return nil, err
+			return nil, false, err
 		}
 		if err := os.Rename(sideTmp, sideTarget); err != nil {
 			os.RemoveAll(moduleTarget)
-			return nil, fmt.Errorf("写入 sidecar 目录失败: %w", err)
+			return nil, false, fmt.Errorf("写入 sidecar 目录失败: %w", err)
 		}
 		sideTmp = ""
 	}
 	if err := os.MkdirAll(r.ModuleDataDir(m.ID), 0o755); err != nil {
 		os.RemoveAll(moduleTarget)
-		return nil, fmt.Errorf("创建模块数据目录失败: %w", err)
+		return nil, false, fmt.Errorf("创建模块数据目录失败: %w", err)
 	}
 
 	r.Scan()
-	if err := r.Enable(m.ID); err != nil {
-		return nil, err
-	}
 	m.Dir = moduleTarget
-	return m, nil
+	return m, false, nil
+}
+
+// upgrade 用已解压的新版本替换旧版本，失败时恢复备份。
+func (r *Registry) upgrade(m, existing *Module, moduleTmp, sideTmp, moduleTarget, sideTarget string) (*Module, bool, error) {
+	wasEnabled := r.IsEnabled(m.ID)
+	backupMod := filepath.Join(r.dir, "."+m.ID+".bak")
+	backupSide := filepath.Join(filepath.Dir(sideTarget), "."+m.ID+".bak")
+	os.RemoveAll(backupMod)
+	os.RemoveAll(backupSide)
+
+	if err := os.Rename(moduleTarget, backupMod); err != nil {
+		return nil, false, fmt.Errorf("备份旧模块失败: %w", err)
+	}
+	sideMoved := false
+	if _, err := os.Stat(sideTarget); err == nil {
+		if err := os.Rename(sideTarget, backupSide); err != nil {
+			os.Rename(backupMod, moduleTarget)
+			return nil, false, fmt.Errorf("备份旧 sidecar 失败: %w", err)
+		}
+		sideMoved = true
+	}
+	restore := func() {
+		os.RemoveAll(moduleTarget)
+		if sideMoved {
+			os.RemoveAll(sideTarget)
+		}
+		os.Rename(backupMod, moduleTarget)
+		if sideMoved {
+			os.Rename(backupSide, sideTarget)
+		}
+	}
+
+	if err := os.Rename(moduleTmp, moduleTarget); err != nil {
+		restore()
+		return nil, false, fmt.Errorf("写入新版本失败: %w", err)
+	}
+	if m.Sidecar != nil {
+		if err := os.MkdirAll(filepath.Dir(sideTarget), 0o755); err != nil {
+			restore()
+			return nil, false, err
+		}
+		if err := os.Rename(sideTmp, sideTarget); err != nil {
+			restore()
+			return nil, false, fmt.Errorf("写入新 sidecar 失败: %w", err)
+		}
+	}
+
+	r.Scan()
+	if got, ok := r.Get(m.ID); !ok || got.Version != m.Version {
+		restore()
+		r.Scan()
+		return nil, false, fmt.Errorf("升级后模块加载失败（旧版本 %s），已回滚", existing.Version)
+	}
+	if wasEnabled {
+		if err := r.Enable(m.ID); err != nil {
+			restore()
+			r.Scan()
+			return nil, false, fmt.Errorf("恢复启用状态失败，已回滚: %w", err)
+		}
+	}
+	os.RemoveAll(backupMod)
+	os.RemoveAll(backupSide)
+	m.Dir = moduleTarget
+	return m, true, nil
 }
 
 // extractZip 把 zip 拆到两个目标：前端/清单进入 moduleDst，sidecar 进入 sideDst。
@@ -553,6 +693,9 @@ func (r *Registry) loadState() {
 	for _, id := range list {
 		r.enabled[id] = true
 	}
+	for id, fp := range s.Confirmed {
+		r.confirmed[id] = fp
+	}
 }
 
 func (r *Registry) saveState() error {
@@ -560,6 +703,12 @@ func (r *Registry) saveState() error {
 	s := state{Enabled: make([]string, 0, len(r.enabled))}
 	for id := range r.enabled {
 		s.Enabled = append(s.Enabled, id)
+	}
+	for id, fp := range r.confirmed {
+		if s.Confirmed == nil {
+			s.Confirmed = make(map[string]string)
+		}
+		s.Confirmed[id] = fp
 	}
 	r.mu.RUnlock()
 	sort.Strings(s.Enabled)

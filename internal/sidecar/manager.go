@@ -20,6 +20,13 @@ import (
 	"github.com/fushuqian/mica_home/internal/module"
 )
 
+const (
+	maxLogBytes = 5 << 20
+	logBackups  = 2
+	stableRun   = 60 * time.Second
+	maxRestarts = 5
+)
+
 // Status 是宿主暴露的 sidecar 运行状态。
 type Status struct {
 	State     string `json:"state"`
@@ -32,11 +39,11 @@ type Status struct {
 }
 
 type process struct {
-	mod       *module.Module
-	sidecarID string
-	dataRoot  string
-	binPath   string
-	workDir   string
+	mod        *module.Module
+	sidecarID  string
+	dataRoot   string
+	binPath    string
+	workDir    string
 	sidecarDir string
 	dataDir    string
 	logPath    string
@@ -53,15 +60,14 @@ type process struct {
 	exitCode  int
 	lastError string
 	stopping  bool
-	exited    chan struct{}
-	ready     chan struct{}
-	readyOnce sync.Once
+	stopCh    chan struct{}
+	done      chan struct{}
 }
 
 // Manager 管理所有模块的 sidecar 进程。
 type Manager struct {
-	mu      sync.Mutex
-	procs   map[string]*process
+	mu       sync.Mutex
+	procs    map[string]*process
 	dataRoot string
 }
 
@@ -77,7 +83,7 @@ func (m *Manager) Start(mod *module.Module) error {
 	}
 	m.mu.Lock()
 	old := m.procs[mod.ID]
-	if old != nil && old.isActive() {
+	if old != nil && old.supervising() {
 		m.mu.Unlock()
 		return nil
 	}
@@ -103,6 +109,13 @@ func (m *Manager) Stop(id string) {
 	if p != nil {
 		p.stop()
 	}
+}
+
+// Forget 从管理表中移除已卸载的模块，避免残留状态。
+func (m *Manager) Forget(id string) {
+	m.mu.Lock()
+	delete(m.procs, id)
+	m.mu.Unlock()
 }
 
 // Status 返回 sidecar 状态；不存在时返回 stopped。
@@ -196,8 +209,6 @@ func newProcess(dataRoot string, mod *module.Module) (*process, error) {
 		token:      randomToken(),
 		healthPath: health,
 		state:      "stopped",
-		exited:     make(chan struct{}),
-		ready:      make(chan struct{}),
 	}, nil
 }
 
@@ -205,6 +216,22 @@ func (p *process) isActive() bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.state == "running" || p.state == "starting" || p.state == "degraded"
+}
+
+// supervising 表示自动重启循环仍在运行。
+func (p *process) supervising() bool {
+	p.mu.Lock()
+	done := p.done
+	p.mu.Unlock()
+	if done == nil {
+		return false
+	}
+	select {
+	case <-done:
+		return false
+	default:
+		return true
+	}
 }
 
 func (p *process) status() Status {
@@ -227,88 +254,148 @@ func (p *process) start() error {
 		p.mu.Unlock()
 		return nil
 	}
-	p.stopping = false
-	p.lastError = ""
-	p.state = "starting"
-	env := p.env()
-	args := p.args(env)
-	logFile, err := os.OpenFile(p.logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
-	if err != nil {
+	if p.done != nil {
+		select {
+		case <-p.done:
+		default:
+			p.mu.Unlock()
+			return nil
+		}
+	}
+	if _, err := os.Stat(p.binPath); err != nil {
 		p.state = "degraded"
-		p.lastError = err.Error()
+		p.lastError = "sidecar 入口不存在: " + err.Error()
 		p.mu.Unlock()
 		return err
 	}
-	cmd := exec.Command(p.binPath, args...)
+	p.stopping = false
+	p.lastError = ""
+	p.state = "starting"
+	p.stopCh = make(chan struct{})
+	p.done = make(chan struct{})
+	p.mu.Unlock()
+
+	go p.loop()
+	return nil
+}
+
+// loop 负责拉起进程，并在崩溃后按 1/2/5/10/10 秒退避重启。
+func (p *process) loop() {
+	backoff := []time.Duration{time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second, 10 * time.Second}
+	attempt := 0
+	defer close(p.done)
+	for {
+		began := time.Now()
+		code, err := p.spawn()
+
+		p.mu.Lock()
+		stopping := p.stopping
+		if !stopping {
+			msg := "进程已退出"
+			if err != nil {
+				msg = "进程退出: " + err.Error()
+			}
+			p.pid = 0
+			p.exitCode = code
+			p.restarts++
+			p.state = "degraded"
+			p.lastError = msg
+		}
+		p.mu.Unlock()
+		if stopping {
+			return
+		}
+		reapZombies()
+		// watch 崩溃后它拉起的子进程可能稍后才变成僵尸，延迟再收一次。
+		time.AfterFunc(500*time.Millisecond, reapZombies)
+
+		if time.Since(began) >= stableRun {
+			attempt = 0
+		}
+		if attempt >= maxRestarts {
+			p.mu.Lock()
+			p.lastError = "连续异常退出，已停止自动重启；最后一次: " + p.lastError
+			p.mu.Unlock()
+			return
+		}
+		select {
+		case <-p.stopCh:
+			return
+		case <-time.After(backoff[attempt]):
+		}
+		attempt++
+	}
+}
+
+// spawn 启动一次进程并阻塞到它退出，返回退出码。
+func (p *process) spawn() (int, error) {
+	logFile, err := p.openLog()
+	if err != nil {
+		return 0, err
+	}
+	env := p.env()
+	cmd := exec.Command(p.binPath, p.args(env)...)
 	cmd.Dir = p.workDir
 	cmd.Env = envList(env)
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
 	cmd.SysProcAttr = sysProcAttr()
+
+	p.mu.Lock()
 	p.cmd = cmd
-	exited := make(chan struct{})
-	p.exited = exited
 	p.mu.Unlock()
 
 	if err := cmd.Start(); err != nil {
 		logFile.Close()
-		p.mu.Lock()
-		p.state = "degraded"
-		p.lastError = "启动失败: " + err.Error()
-		p.mu.Unlock()
-		return err
+		return 0, fmt.Errorf("启动失败: %w", err)
 	}
+
 	p.mu.Lock()
-	p.pid = cmd.Process.Pid
+	pid := cmd.Process.Pid
+	p.pid = pid
 	p.startedAt = time.Now()
+	p.state = "starting"
 	p.mu.Unlock()
 
-	go func() {
-		err := cmd.Wait()
-		logFile.Close()
-		close(exited)
-		p.mu.Lock()
-		if p.stopping {
-			p.state = "stopped"
-			p.mu.Unlock()
-			return
-		}
-		p.state = "degraded"
-		p.restarts++
-		if err != nil {
-			p.lastError = "进程退出: " + err.Error()
-			if ee, ok := err.(*exec.ExitError); ok {
-				p.exitCode = ee.ExitCode()
-			}
-		} else {
-			p.lastError = "进程已退出"
-		}
-		p.mu.Unlock()
-	}()
+	go p.checkHealth(pid)
 
-	go p.checkHealth()
-	return nil
+	err = cmd.Wait()
+	logFile.Close()
+	code := 0
+	if err != nil {
+		if ee, ok := err.(*exec.ExitError); ok {
+			code = ee.ExitCode()
+		}
+	}
+	return code, err
 }
 
-func (p *process) checkHealth() {
+func (p *process) checkHealth(pid int) {
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
 		if p.isStopping() {
 			return
 		}
+		p.mu.Lock()
+		alive := p.pid == pid
+		p.mu.Unlock()
+		if !alive {
+			return
+		}
 		code, err := p.get(p.healthPath)
 		if err == nil && code == http.StatusOK {
 			p.mu.Lock()
-			p.state = "running"
-			p.lastError = ""
+			if p.pid == pid && p.state == "starting" {
+				p.state = "running"
+				p.lastError = ""
+			}
 			p.mu.Unlock()
-			p.readyOnce.Do(func() { close(p.ready) })
 			return
 		}
 		time.Sleep(200 * time.Millisecond)
 	}
 	p.mu.Lock()
-	if p.state == "starting" {
+	if p.pid == pid && p.state == "starting" {
 		p.state = "degraded"
 		p.lastError = "健康检查超时"
 	}
@@ -317,34 +404,62 @@ func (p *process) checkHealth() {
 
 func (p *process) stop() {
 	p.mu.Lock()
-	if p.state == "stopped" || p.cmd == nil || p.cmd.Process == nil {
+	done := p.done
+	stopCh := p.stopCh
+	cmd := p.cmd
+	if done == nil {
 		p.state = "stopped"
+		p.pid = 0
 		p.mu.Unlock()
 		return
 	}
+	select {
+	case <-done:
+		p.state = "stopped"
+		p.pid = 0
+		p.mu.Unlock()
+		p.removeSocket()
+		return
+	default:
+	}
 	p.stopping = true
 	p.state = "stopping"
-	cmd := p.cmd
-	exited := p.exited
 	p.mu.Unlock()
 
-	killGroup(cmd, false)
-	select {
-	case <-exited:
-	case <-time.After(10 * time.Second):
-		killGroup(cmd, true)
+	if stopCh != nil {
 		select {
-		case <-exited:
-		case <-time.After(3 * time.Second):
+		case <-stopCh:
+		default:
+			close(stopCh)
 		}
 	}
-	if strings.HasPrefix(p.addr, "unix://") {
-		os.Remove(strings.TrimPrefix(p.addr, "unix://"))
+	if cmd != nil && cmd.Process != nil {
+		killGroup(cmd, false)
+	}
+	select {
+	case <-done:
+	case <-time.After(12 * time.Second):
+		if cmd != nil && cmd.Process != nil {
+			killGroup(cmd, true)
+		}
+		select {
+		case <-done:
+		case <-time.After(3 * time.Second):
+		}
 	}
 	p.mu.Lock()
 	p.state = "stopped"
 	p.pid = 0
+	p.stopping = false
 	p.mu.Unlock()
+	p.removeSocket()
+	reapZombies()
+}
+
+func (p *process) removeSocket() {
+	if strings.HasPrefix(p.addr, "unix://") {
+		os.Remove(strings.TrimPrefix(p.addr, "unix://"))
+	}
 }
 
 func (p *process) isStopping() bool {
@@ -353,16 +468,28 @@ func (p *process) isStopping() bool {
 	return p.stopping
 }
 
+// openLog 打开日志文件，超过 5MB 时滚动为 .1 / .2。
+func (p *process) openLog() (*os.File, error) {
+	if st, err := os.Stat(p.logPath); err == nil && st.Size() >= maxLogBytes {
+		os.Remove(fmt.Sprintf("%s.%d", p.logPath, logBackups))
+		for i := logBackups - 1; i >= 1; i-- {
+			os.Rename(fmt.Sprintf("%s.%d", p.logPath, i), fmt.Sprintf("%s.%d", p.logPath, i+1))
+		}
+		os.Rename(p.logPath, p.logPath+".1")
+	}
+	return os.OpenFile(p.logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+}
+
 func (p *process) env() map[string]string {
 	env := map[string]string{
-		"MICA_DATA_DIR":         p.dataRoot,
-		"MICA_MODULE_ID":        p.sidecarID,
-		"MICA_MODULE_DIR":       p.mod.Dir,
-		"MICA_MODULE_DATA_DIR":  p.dataDir,
-		"MICA_SIDECAR_DIR":      p.sidecarDir,
-		"MICA_SIDECAR_ADDR":     p.addr,
-		"MICA_SIDECAR_TOKEN":    p.token,
-		"MICA_HOST_TOKEN":       p.token,
+		"MICA_DATA_DIR":        p.dataRoot,
+		"MICA_MODULE_ID":       p.sidecarID,
+		"MICA_MODULE_DIR":      p.mod.Dir,
+		"MICA_MODULE_DATA_DIR": p.dataDir,
+		"MICA_SIDECAR_DIR":     p.sidecarDir,
+		"MICA_SIDECAR_ADDR":    p.addr,
+		"MICA_SIDECAR_TOKEN":   p.token,
+		"MICA_HOST_TOKEN":      p.token,
 	}
 	for k, v := range p.mod.Sidecar.Env {
 		env[k] = v

@@ -2,6 +2,15 @@
 
 ## 2026-10-29
 
+### 新增 · Sidecar 首版收尾
+- 崩溃自动重启：1/2/5/10/10 秒退避，最多 5 次；稳定运行 60 秒后重置计数；watch 崩溃后回收被容器 init 收养的僵尸子进程。
+- 日志轮转：`/data/logs/<id>.log` 超过 5MB 滚动为 `.1` / `.2`。
+- 同 ID 版本升级：停旧 watch → 备份模块与 sidecar → 替换 → 重新扫描；失败自动回滚旧版本。同版本重装仍返回 409。
+- 上传改流式：`multipart` 直接写入 `/data/tmp`，不再整包读入内存。
+- 权限确认：sidecar 声明了 `permissions` 的模块安装后不自动启用；`enable` 返回 428，`POST /api/modules/{id}/confirm` 记录 `id + 指纹`，升级或权限变化后需重新确认。
+- `/api/modules` 增加 `sidecarState` / `sidecarPid` / `sidecarError` / `needConfirm`；管理页展示 sidecar 状态并提供权限确认弹窗。
+- 卸载清理 sidecar 目录、日志、socket 与空用户数据目录；非空用户数据保留。
+
 ### 调整 · 首页搜索框移入模块仓库标题区
 - 顶栏移除搜索框，只保留品牌、导航与主题按钮；顶栏不再有居中的搜索位。
 - 搜索框移到「模块仓库」标题行左侧，替换原来的统计文字「已启用 N 个模块 · 已安装 N 个」，并删除对应样式与 `shelf-summary` 统计更新逻辑。

@@ -126,6 +126,36 @@ button{font-family:inherit}
 .acts{display:flex;gap:8px;flex:0 0 auto}
 .acts .btn{padding:7px 13px}
 
+.sc{
+  display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;
+  padding:4px 10px;border-radius:999px;font-family:var(--font-m);
+  font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;
+  border:1px solid var(--line);background:var(--mh-soft);color:var(--ink-3);
+}
+.sc i{width:5px;height:5px;border-radius:50%;background:currentColor}
+.sc.running{color:var(--teal-deep);border-color:var(--mh-accent-line);background:var(--mh-accent-soft)}
+.sc.degraded{color:var(--mh-warn-text);border-color:var(--mh-warn-line);background:var(--mh-warn-bg)}
+.sc.starting,.sc.stopping{color:var(--mh-blue);border-color:color-mix(in srgb,var(--mh-blue) 30%,transparent);background:color-mix(in srgb,var(--mh-blue) 10%,transparent)}
+
+dialog.confirm{
+  padding:0;border:1px solid var(--mh-glass-border);border-radius:20px;
+  width:min(460px,calc(100% - 32px));color:var(--ink);
+  background:linear-gradient(152deg,var(--mh-card-a),var(--mh-card-b));
+  box-shadow:var(--shadow-hi);
+}
+dialog.confirm::backdrop{background:color-mix(in srgb,var(--mh-bg) 55%,transparent);backdrop-filter:blur(6px)}
+.confirm-body{padding:24px}
+.confirm-body h3{font-size:17px;letter-spacing:-.015em}
+.confirm-body p{margin-top:8px;font-size:12.5px;color:var(--ink-2);line-height:1.6}
+.confirm-body ul{
+  margin:14px 0 0;padding:12px 14px;list-style:none;border-radius:12px;
+  border:1px solid var(--line);background:var(--mh-soft);
+  font-family:var(--font-m);font-size:11.5px;color:var(--ink-2);
+}
+.confirm-body li{padding:3px 0}
+.confirm-body li::before{content:"·";margin-right:8px;color:var(--teal)}
+.confirm-foot{display:flex;justify-content:flex-end;gap:8px;padding:0 24px 22px}
+
 .empty{
   padding:44px 24px;text-align:center;border-radius:16px;
   border:1px dashed var(--mh-line-strong);background:var(--mh-soft);
@@ -192,13 +222,13 @@ button{font-family:inherit}
   <div class="head">
     <div class="eyebrow"><i></i>Module Control</div>
     <h1>模块管理</h1>
-    <p>上传安装、启用或停用模块。停用只停止展示与加载，模块文件仍保留；卸载会删除 <span class="mono">modules/&lt;id&gt;</span> 目录。</p>
+    <p>上传安装、启用或停用模块。停用只停止展示与加载，模块文件仍保留；卸载会删除 <span class="mono">modules/&lt;id&gt;</span> 与 sidecar，用户数据保留。</p>
   </div>
 
   <section class="panel">
     <div>
       <b>安装模块包</b>
-      <p>上传 zip：包根直接包含 manifest.json 与 frontend/，上限 20MB。</p>
+      <p>上传 zip：包根直接包含 manifest.json 与 frontend/，可选 sidecar/，上限 160MB。</p>
     </div>
     <button class="btn" id="upload-btn" type="button">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4"/><path d="M7.5 8.5L12 4l4.5 4.5"/><path d="M4 16v3.5A1.5 1.5 0 005.5 21h13a1.5 1.5 0 001.5-1.5V16"/></svg>
@@ -218,6 +248,18 @@ button{font-family:inherit}
   <span class="tick"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M4 12.5l5.5 5.5L20 6.5"/></svg></span>
   <span id="toast-text">已完成</span>
 </div>
+
+<dialog class="confirm" id="confirm-dialog">
+  <div class="confirm-body">
+    <h3 id="confirm-title">确认 sidecar 权限</h3>
+    <p>该模块会在容器内运行常驻进程。启用前请确认它声明的权限：</p>
+    <ul id="confirm-perms"></ul>
+  </div>
+  <div class="confirm-foot">
+    <button class="btn soft" type="button" value="cancel" data-confirm="cancel">取消</button>
+    <button class="btn primary" type="button" value="ok" data-confirm="ok">我已知悉，启用</button>
+  </div>
+</dialog>
 
 <script>
 const ICONS = {
@@ -255,16 +297,37 @@ function showToast(text) {
   showToast.t = setTimeout(() => toast.classList.remove('show'), 2600);
 }
 
-async function jsonFetch(url, init) {
+async function api(url, init) {
   const res = await fetch(url, init);
-  if (!res.ok) {
-    const body = await res.text();
-    let msg = body;
-    try { msg = JSON.parse(body).error || body; } catch {}
-    throw new Error(msg || `HTTP ${res.status}`);
-  }
-  return res.json();
+  const text = await res.text();
+  let data = null;
+  try { data = JSON.parse(text); } catch {}
+  return { ok: res.ok, status: res.status, data, text };
 }
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// askConfirm 展示 sidecar 权限确认弹窗，返回是否同意。
+function askConfirm(name, permissions) {
+  const dlg = document.getElementById('confirm-dialog');
+  document.getElementById('confirm-title').textContent = `启用 ${name}`;
+  const list = document.getElementById('confirm-perms');
+  const items = (permissions && permissions.length) ? permissions : ['未声明额外权限'];
+  list.innerHTML = items.map(p => `<li>${esc(p)}</li>`).join('');
+  return new Promise(resolve => {
+    const onClose = () => {
+      dlg.removeEventListener('close', onClose);
+      resolve(dlg.returnValue === 'ok');
+    };
+    dlg.addEventListener('close', onClose);
+    dlg.returnValue = 'cancel';
+    dlg.showModal();
+  });
+}
+
+const SIDECAR_LABEL = { running: 'SIDECAR', starting: 'STARTING', stopping: 'STOPPING', degraded: 'DEGRADED', stopped: 'STOPPED' };
 
 function render() {
   countEl.textContent = `${MODULES.length} 个`;
@@ -272,37 +335,63 @@ function render() {
     listEl.innerHTML = '<div class="empty"><b>还没有模块</b>上传一个 zip 模块包开始。</div>';
     return;
   }
-  listEl.innerHTML = MODULES.map(m => `
-    <article class="row" data-id="${m.id}">
-      <div class="icon ${m.tone || 'tone-a'}">${iconSVG(m.icon, 20)}</div>
+  listEl.innerHTML = MODULES.map(m => {
+    const sc = m.sidecarState ? `<span class="sc ${esc(m.sidecarState)}" title="${esc(m.sidecarError || '')}"><i></i>${SIDECAR_LABEL[m.sidecarState] || esc(m.sidecarState)}</span>` : '';
+    return `
+    <article class="row" data-id="${esc(m.id)}">
+      <div class="icon ${esc(m.tone || 'tone-a')}">${iconSVG(m.icon, 20)}</div>
       <div class="info">
-        <b>${m.name}</b>
-        <span>v${m.version} · ${m.id} · ${m.category || '未分类'}</span>
+        <b>${esc(m.name)}</b>
+        <span>v${esc(m.version)} · ${esc(m.id)} · ${esc(m.category || '未分类')}${m.needConfirm ? ' · 待确认权限' : ''}</span>
       </div>
+      ${sc}
       <span class="state ${m.enabled ? 'on' : 'off'}"><i></i>${m.enabled ? 'ENABLED' : 'DISABLED'}</span>
       <div class="acts">
-        <button class="btn soft" type="button" data-toggle="${m.id}">${m.enabled ? '停用' : '启用'}</button>
-        <button class="btn danger" type="button" data-remove="${m.id}">卸载</button>
+        <button class="btn soft" type="button" data-toggle="${esc(m.id)}">${m.enabled ? '停用' : '启用'}</button>
+        <button class="btn danger" type="button" data-remove="${esc(m.id)}">卸载</button>
       </div>
-    </article>`).join('');
+    </article>`;
+  }).join('');
 }
 
 async function load() {
   try {
-    MODULES = await jsonFetch('/api/modules');
+    const r = await api('/api/modules');
+    if (!r.ok) throw new Error((r.data && r.data.error) || r.text || `HTTP ${r.status}`);
+    MODULES = r.data || [];
     render();
   } catch (err) {
-    listEl.innerHTML = `<div class="empty"><b>无法连接宿主</b>${err.message}</div>`;
+    listEl.innerHTML = `<div class="empty"><b>无法连接宿主</b>${esc(err.message)}</div>`;
     countEl.textContent = '—';
   }
+}
+
+// enableWithConfirm 处理 428 权限确认流程。
+async function enableWithConfirm(id, name, permissions) {
+  let r = await api(`/api/modules/${id}/enable`, { method: 'POST' });
+  if (r.status === 428 && r.data && r.data.needConfirm) {
+    const agreed = await askConfirm(name, r.data.permissions || permissions);
+    if (!agreed) return false;
+    const c = await api(`/api/modules/${id}/confirm`, { method: 'POST' });
+    if (!c.ok) throw new Error((c.data && c.data.error) || `HTTP ${c.status}`);
+    r = await api(`/api/modules/${id}/enable`, { method: 'POST' });
+  }
+  if (!r.ok) throw new Error((r.data && r.data.error) || r.text || `HTTP ${r.status}`);
+  if (r.data && r.data.sidecarError) showToast(`已启用，但 sidecar 异常：${r.data.sidecarError}`);
+  return true;
 }
 
 async function toggle(id) {
   const m = MODULES.find(x => x.id === id);
   if (!m) return;
   try {
-    await jsonFetch(`/api/modules/${id}/${m.enabled ? 'disable' : 'enable'}`, { method: 'POST' });
-    showToast(m.enabled ? `已停用 ${m.name}` : `已启用 ${m.name}`);
+    if (m.enabled) {
+      const r = await api(`/api/modules/${id}/disable`, { method: 'POST' });
+      if (!r.ok) throw new Error((r.data && r.data.error) || `HTTP ${r.status}`);
+      showToast(`已停用 ${m.name}`);
+    } else {
+      if (await enableWithConfirm(id, m.name)) showToast(`已启用 ${m.name}`);
+    }
     await load();
   } catch (err) {
     showToast(`操作失败：${err.message}`);
@@ -312,9 +401,10 @@ async function toggle(id) {
 async function remove(id) {
   const m = MODULES.find(x => x.id === id);
   if (!m) return;
-  if (!confirm(`确定卸载「${m.name}」？\n将删除 modules/${m.id} 目录，无法恢复。`)) return;
+  if (!confirm(`确定卸载「${m.name}」？\n将删除模块与 sidecar 文件，用户数据保留。`)) return;
   try {
-    await jsonFetch(`/api/modules/${id}`, { method: 'DELETE' });
+    const r = await api(`/api/modules/${id}`, { method: 'DELETE' });
+    if (!r.ok) throw new Error((r.data && r.data.error) || `HTTP ${r.status}`);
     showToast(`已卸载 ${m.name}`);
     await load();
   } catch (err) {
@@ -333,12 +423,24 @@ async function uploadModule(file) {
   try {
     const fd = new FormData();
     fd.append('file', file);
-    const res = await fetch('/api/modules/install', { method: 'POST', body: fd });
-    const text = await res.text();
-    let data = null;
-    try { data = JSON.parse(text); } catch {}
-    if (!res.ok) throw new Error((data && data.error) || text || `HTTP ${res.status}`);
-    showToast(`已安装并启用 ${data.name || data.id || '模块'}`);
+    const r = await api('/api/modules/install', { method: 'POST', body: fd });
+    if (!r.ok) throw new Error((r.data && r.data.error) || r.text || `HTTP ${r.status}`);
+    const data = r.data || {};
+    const name = data.name || data.id || '模块';
+    if (data.needConfirm) {
+      const agreed = await askConfirm(name, data.permissions);
+      if (agreed) {
+        const c = await api(`/api/modules/${data.id}/confirm`, { method: 'POST' });
+        if (!c.ok) throw new Error((c.data && c.data.error) || `HTTP ${c.status}`);
+        const e = await api(`/api/modules/${data.id}/enable`, { method: 'POST' });
+        if (!e.ok) throw new Error((e.data && e.data.error) || `HTTP ${e.status}`);
+        showToast(`已安装并启用 ${name}`);
+      } else {
+        showToast(`已安装 ${name}，确认权限后可启用`);
+      }
+    } else {
+      showToast(`${data.upgraded ? '已升级' : '已安装'} ${name}${data.enabled ? ' 并启用' : ''}`);
+    }
     await load();
   } catch (err) {
     showToast(`安装失败：${err.message}`);
@@ -347,6 +449,14 @@ async function uploadModule(file) {
     uploadLabel.textContent = label;
   }
 }
+
+document.querySelectorAll('[data-confirm]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const dlg = document.getElementById('confirm-dialog');
+    dlg.returnValue = btn.dataset.confirm;
+    dlg.close();
+  });
+});
 
 listEl.addEventListener('click', e => {
   const toggleBtn = e.target.closest('[data-toggle]');

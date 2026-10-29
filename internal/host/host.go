@@ -49,6 +49,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/modules/install", s.installArchive)
 	mux.HandleFunc("POST /api/modules/{id}/enable", s.enable)
 	mux.HandleFunc("POST /api/modules/{id}/disable", s.disable)
+	mux.HandleFunc("POST /api/modules/{id}/confirm", s.confirm)
 	mux.HandleFunc("DELETE /api/modules/{id}", s.removeModule)
 	mux.HandleFunc("POST /api/modules/{id}/install", s.enable)    // 兼容旧调用：安装即启用
 	mux.HandleFunc("POST /api/modules/{id}/uninstall", s.removeModule) // 兼容旧调用：卸载即删除
@@ -134,24 +135,69 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// moduleView 是列表项：模块信息 + sidecar 运行状态 + 权限确认状态。
+type moduleView struct {
+	module.View
+	SidecarState string `json:"sidecarState,omitempty"`
+	SidecarPID   int    `json:"sidecarPid,omitempty"`
+	SidecarError string `json:"sidecarError,omitempty"`
+	NeedConfirm  bool   `json:"needConfirm"`
+}
+
 func (s *Server) listModules(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, s.reg.List())
+	list := s.reg.List()
+	out := make([]moduleView, 0, len(list))
+	for _, v := range list {
+		mv := moduleView{View: v, NeedConfirm: s.reg.RequireConfirm(v.ID) != ""}
+		if v.Sidecar != nil && s.sidecars != nil {
+			st := s.sidecars.Status(v.ID)
+			mv.SidecarState = st.State
+			mv.SidecarPID = st.PID
+			mv.SidecarError = st.LastError
+		}
+		out = append(out, mv)
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 func (s *Server) enable(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	m, ok := s.reg.Get(id)
+	if !ok {
+		writeError(w, http.StatusNotFound, module.ErrNotFound.Error())
+		return
+	}
+	if fp := s.reg.RequireConfirm(id); fp != "" {
+		writeJSON(w, http.StatusPreconditionRequired, map[string]any{
+			"error":       "需要确认 sidecar 权限",
+			"needConfirm": true,
+			"permissions": m.Sidecar.Permissions,
+			"fingerprint": fp,
+		})
+		return
+	}
 	if err := s.reg.Enable(id); err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
 	}
-	m, _ := s.reg.Get(id)
 	var sidecarErr string
-	if m != nil && m.Sidecar != nil && s.sidecars != nil {
+	if m.Sidecar != nil && s.sidecars != nil {
 		if err := s.sidecars.Start(m); err != nil {
 			sidecarErr = err.Error()
 		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"id": id, "enabled": true, "sidecarError": sidecarErr})
+}
+
+// confirm 记录 sidecar 权限确认。
+func (s *Server) confirm(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	fp, err := s.reg.Confirm(id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"id": id, "fingerprint": fp})
 }
 
 func (s *Server) disable(w http.ResponseWriter, r *http.Request) {
@@ -170,6 +216,7 @@ func (s *Server) removeModule(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if s.sidecars != nil {
 		s.sidecars.Stop(id)
+		s.sidecars.Forget(id)
 	}
 	if err := s.reg.Remove(id); err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
@@ -185,6 +232,10 @@ func (s *Server) StartSidecars() {
 	}
 	for _, v := range s.reg.List() {
 		if !v.Enabled || v.Sidecar == nil {
+			continue
+		}
+		if s.reg.RequireConfirm(v.ID) != "" {
+			log.Printf("sidecar %s 权限尚未确认，跳过启动", v.ID)
 			continue
 		}
 		if m, ok := s.reg.Get(v.ID); ok {
@@ -205,22 +256,65 @@ func (s *Server) ShutdownSidecars() {
 // maxUploadBytes 是模块包上传上限。
 const maxUploadBytes = 160 << 20
 
-// installArchive 接收 multipart 字段 file（zip），解压到模块目录并启用。
+// installArchive 接收 multipart 字段 file（zip），流式落盘后安装。
+// 声明的 sidecar 权限未确认时只安装不启用，由管理页确认后再启用。
 func (s *Server) installArchive(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadBytes)
-	file, _, err := r.FormFile("file")
+	mr, err := r.MultipartReader()
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "缺少 file 字段，或上传内容超过 20 MB")
+		writeError(w, http.StatusBadRequest, "需要 multipart/form-data 上传")
 		return
 	}
-	defer file.Close()
+	tmpDir := filepath.Join(s.reg.DataRoot(), "tmp")
+	if err := os.MkdirAll(tmpDir, 0o755); err != nil {
+		writeError(w, http.StatusInternalServerError, "创建临时目录失败: "+err.Error())
+		return
+	}
+	var tmp *os.File
+	for {
+		part, err := mr.NextPart()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "读取上传内容失败: "+err.Error())
+			return
+		}
+		if part.FormName() != "file" {
+			io.Copy(io.Discard, part)
+			part.Close()
+			continue
+		}
+		tmp, err = os.CreateTemp(tmpDir, "upload-*.zip")
+		if err != nil {
+			part.Close()
+			writeError(w, http.StatusInternalServerError, "创建临时文件失败: "+err.Error())
+			return
+		}
+		n, copyErr := io.Copy(tmp, io.LimitReader(part, maxUploadBytes+1))
+		part.Close()
+		if copyErr != nil {
+			tmp.Close()
+			os.Remove(tmp.Name())
+			writeError(w, http.StatusBadRequest, "读取上传内容失败: "+copyErr.Error())
+			return
+		}
+		if n > maxUploadBytes {
+			tmp.Close()
+			os.Remove(tmp.Name())
+			writeError(w, http.StatusBadRequest, "模块包超过 160 MB")
+			return
+		}
+		break
+	}
+	if tmp == nil {
+		writeError(w, http.StatusBadRequest, "缺少 file 字段")
+		return
+	}
+	tmp.Close()
+	defer os.Remove(tmp.Name())
 
-	data, err := io.ReadAll(file)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "读取上传内容失败: "+err.Error())
-		return
-	}
-	m, err := s.reg.InstallArchive(data)
+	m, upgraded, err := s.reg.InstallArchiveFile(tmp.Name())
 	if err != nil {
 		status := http.StatusBadRequest
 		if errors.Is(err, module.ErrAlreadyExists) {
@@ -229,19 +323,44 @@ func (s *Server) installArchive(w http.ResponseWriter, r *http.Request) {
 		writeError(w, status, err.Error())
 		return
 	}
-	var sidecarErr string
-	if m.Sidecar != nil && s.sidecars != nil {
-		if err := s.sidecars.Start(m); err != nil {
-			sidecarErr = err.Error()
-		}
+
+	// 升级时旧 sidecar 可能仍在运行，先停掉再按新版本启动。
+	if upgraded && s.sidecars != nil {
+		s.sidecars.Stop(m.ID)
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
+
+	var permissions []string
+	if m.Sidecar != nil {
+		permissions = m.Sidecar.Permissions
+	}
+	fingerprint := s.reg.RequireConfirm(m.ID)
+	resp := map[string]any{
 		"id":           m.ID,
 		"name":         m.Name,
 		"version":      m.Version,
-		"enabled":      true,
-		"sidecarError": sidecarErr,
-	})
+		"upgraded":     upgraded,
+		"enabled":      s.reg.IsEnabled(m.ID),
+		"needConfirm":  fingerprint != "",
+		"permissions":  permissions,
+		"fingerprint":  fingerprint,
+		"sidecarError": "",
+	}
+	if fingerprint != "" {
+		writeJSON(w, http.StatusOK, resp)
+		return
+	}
+
+	if err := s.reg.Enable(m.ID); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	resp["enabled"] = true
+	if m.Sidecar != nil && s.sidecars != nil {
+		if err := s.sidecars.Start(m); err != nil {
+			resp["sidecarError"] = err.Error()
+		}
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func (s *Server) moduleInfo(w http.ResponseWriter, r *http.Request) {

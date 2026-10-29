@@ -21,3 +21,6 @@
 - CSS 状态类不要复用组件类名：`.open` 既当按钮又当弹层状态，弹层一开就把按钮的深色背景和 999px 圆角套到全屏容器上。状态类与组件类必须分命名空间。
 - Go 1.22+ ServeMux 里“方法限定 + 通配路径”与通用 `GET /` 很容易触发优先级冲突 panic；需要通配前缀时，用一个无方法的 `/api/m/` 前缀 handler 自己做二级路由，最稳。
 - Sidecar 安装必须双目标：模块目录可能被卸载删除，二进制必须放 `/data/sidecar`；`/data/modules/<id>` 只放用户数据。上传限额也要按前端/内核分开算。
+- 容器内 PID 1 不会自动回收孤儿僵尸：watch 被 SIGKILL 后，它拉起的 mihomo 会变成 `Z` 且 ppid==1。宿主按 /proc/<pid>/stat 只回收 `Z` 且 ppid 为自己的进程，绝不能用 `wait4(-1)` 乱收，否则会抢走 os/exec 正在 Wait 的子进程。`Pdeathsig` 只保证子进程死，不保证被回收。
+- sidecar 权限确认的指纹要覆盖「版本 + 文件 SHA256 + permissions」，只记模块 ID 会在升级后漏掉重新确认。确认记录写进 state.json，随模块卸载一起删除。
+- 同 ID 升级用固定备份名 `.<id>.bak` 就够：安装流程已被 `installMu` 串行化，不需要时间戳；回滚就是删新目录再把备份 rename 回来。

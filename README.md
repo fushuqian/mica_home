@@ -103,11 +103,12 @@ export function mount(el, api) {
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | GET | `/api/health` | 宿主状态：版本、Go 运行时、模块数、运行时长、扫描告警 |
-| GET | `/api/modules` | 全部模块清单（`installed` / `enabled` / `running`） |
-| POST | `/api/modules/install` | 上传 zip 模块包（multipart 字段 `file`），解压并启用；上限 160MB |
-| POST | `/api/modules/{id}/enable` | 启用模块；有 sidecar 时同时启动 |
+| GET | `/api/modules` | 全部模块清单（含 `sidecarState` / `sidecarPid` / `sidecarError` / `needConfirm`） |
+| POST | `/api/modules/install` | 上传 zip 模块包（multipart 字段 `file`），流式落盘并安装；上限 160MB |
+| POST | `/api/modules/{id}/enable` | 启用模块并启动 sidecar；权限未确认时返回 428 |
+| POST | `/api/modules/{id}/confirm` | 确认 sidecar 权限，记录 `id + 指纹`；升级或权限变化后需重新确认 |
 | POST | `/api/modules/{id}/disable` | 停用模块；同时停止 sidecar |
-| DELETE | `/api/modules/{id}` | 卸载模块（删除目录与 sidecar） |
+| DELETE | `/api/modules/{id}` | 卸载模块（删除模块、sidecar、日志与 socket，保留用户数据） |
 | GET | `/api/m/{id}/info` | 单个模块的 manifest |
 | GET | `/api/m/{id}/ui/{path}` | 模块前端静态资源（仅已启用模块可访问） |
 | GET | `/api/m/{id}/__status` | sidecar 进程状态 |
@@ -143,6 +144,6 @@ export function mount(el, api) {
 
 - **P0（当前）**：宿主内核、模块扫描、前端挂载、Docker 分发。
 - **P1**：OCI 模块仓库索引与在线安装、签名校验、PostgreSQL（schema-per-module）。
-- **P2**：WASM 后端运行时（wazero）、热升级与回滚、依赖解析、权限授权页。
+- **P2**：WASM 后端运行时（wazero）、依赖解析、`/__host/*` 双 token 管理通道。
 
 模块后端契约已在 manifest 中预留（`backend: { type: "wasm", entry: "plugin.wasm" }`），P0 不执行。
