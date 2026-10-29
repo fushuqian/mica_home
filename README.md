@@ -23,6 +23,7 @@ docker run -d --name mica-home --restart unless-stopped \
 - 验证：`curl http://localhost:8080/api/health` 返回 `{"status":"ok",...}`。
 - 升级：`docker rm -f mica-home` 后用新 tag 重新执行上面的 `docker run`，两个卷保留。
 - 只映射 8080；sidecar 的代理端口只在容器内回环，不对外发布。
+- **目录挂载时先给权限**：容器以 UID 10001 运行，`./data`、`./modules` 属主不是 10001 时安装会失败（日志 `POST /api/modules/install 500`）。先执行 `sudo chown -R 10001:10001 data modules`；`/api/system` 会返回 `data.writable`，管理页不可写时会直接禁用上传并提示。
 
 也可以用 Compose（`compose.yaml`）：
 

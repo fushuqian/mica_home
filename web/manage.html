@@ -298,8 +298,14 @@ function fmtBytes(n) {
 function renderLimits() {
   if (!SYS) return;
   const l = SYS.limits || {};
-  const free = SYS.data && SYS.data.freeBytes;
-  limitsEl.textContent = `上传上限 ${fmtBytes(l.uploadBytes)} · 解压上限 前端 ${fmtBytes(l.frontendBytes)} / sidecar ${fmtBytes(l.sidecarBytes)} · 数据盘剩余 ${fmtBytes(free)}`;
+  const d = SYS.data || {};
+  if (d.writable === false) {
+    limitsEl.textContent = `数据目录不可写：${d.error || '未知原因'} · 请执行 chown -R 10001:10001 data modules`;
+    uploadBtn.disabled = true;
+    uploadLabel.textContent = '数据目录不可写';
+    return;
+  }
+  limitsEl.textContent = `上传上限 ${fmtBytes(l.uploadBytes)} · 解压上限 前端 ${fmtBytes(l.frontendBytes)} / sidecar ${fmtBytes(l.sidecarBytes)} · 数据盘剩余 ${fmtBytes(d.freeBytes)}`;
 }
 
 async function loadSystem() {
@@ -449,6 +455,10 @@ async function uploadModule(file) {
   }
   if (SYS && SYS.limits && file.size > SYS.limits.uploadBytes) {
     showToast(`包大小 ${fmtBytes(file.size)} 超过上传上限 ${fmtBytes(SYS.limits.uploadBytes)}`);
+    return;
+  }
+  if (SYS && SYS.data && SYS.data.writable === false) {
+    showToast(`数据目录不可写：${SYS.data.error || '权限不足'}`);
     return;
   }
   const label = uploadLabel.textContent;

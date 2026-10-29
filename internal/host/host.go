@@ -262,13 +262,32 @@ func (s *Server) systemInfo(w http.ResponseWriter, r *http.Request) {
 	limits := module.Limits()
 	limits["uploadBytes"] = maxUploadBytes
 	free, total := diskUsage(s.reg.DataRoot())
+	writable, reason := checkDataWritable(s.reg.DataRoot())
 	writeJSON(w, http.StatusOK, map[string]any{
 		"limits": limits,
-		"data": map[string]int64{
+		"data": map[string]any{
 			"freeBytes":  free,
 			"totalBytes": total,
+			"writable":   writable,
+			"error":      reason,
 		},
 	})
+}
+
+// checkDataWritable 探测数据目录是否可创建临时文件，提前暴露 bind mount 权限问题。
+func checkDataWritable(root string) (bool, string) {
+	tmpDir := filepath.Join(root, "tmp")
+	if err := os.MkdirAll(tmpDir, 0o755); err != nil {
+		return false, err.Error()
+	}
+	f, err := os.CreateTemp(tmpDir, "probe-*")
+	if err != nil {
+		return false, err.Error()
+	}
+	name := f.Name()
+	f.Close()
+	os.Remove(name)
+	return true, ""
 }
 
 // installArchive 接收 multipart 字段 file（zip），流式落盘后安装。
@@ -282,6 +301,7 @@ func (s *Server) installArchive(w http.ResponseWriter, r *http.Request) {
 	}
 	tmpDir := filepath.Join(s.reg.DataRoot(), "tmp")
 	if err := os.MkdirAll(tmpDir, 0o755); err != nil {
+		log.Printf("安装失败（临时目录不可写）: %v", err)
 		writeError(w, http.StatusInternalServerError, "创建临时目录失败: "+err.Error())
 		return
 	}
@@ -303,6 +323,7 @@ func (s *Server) installArchive(w http.ResponseWriter, r *http.Request) {
 		tmp, err = os.CreateTemp(tmpDir, "upload-*.zip")
 		if err != nil {
 			part.Close()
+			log.Printf("安装失败（无法创建临时文件）: %v", err)
 			writeError(w, http.StatusInternalServerError, "创建临时文件失败: "+err.Error())
 			return
 		}
@@ -331,6 +352,7 @@ func (s *Server) installArchive(w http.ResponseWriter, r *http.Request) {
 
 	m, upgraded, err := s.reg.InstallArchiveFile(tmp.Name())
 	if err != nil {
+		log.Printf("安装失败: %v", err)
 		status := http.StatusBadRequest
 		if errors.Is(err, module.ErrAlreadyExists) {
 			status = http.StatusConflict

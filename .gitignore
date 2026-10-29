@@ -12,6 +12,11 @@ mica-home
 
 # 本地安装的运行时模块（示例模块仍按目录跟踪）
 /modules/mihomo/
+/modules/amane/
+
+# 本地媒体与下载目录（Amane 联调）
+/downloads/
+/media/
 
 # 本地规划与临时文档
 /.trae/

@@ -2,6 +2,12 @@
 
 ## 2026-10-30
 
+### 修复 · 目录挂载权限问题可提前发现
+- `GET /api/system` 增加 `data.writable` 与错误原因，启动时探测 `/data/tmp` 是否可写。
+- 管理页在数据目录不可写时禁用上传并提示 `chown -R 10001:10001 data modules`，避免只看到 `Failed to fetch`。
+- 安装失败时服务端日志打印具体原因（临时目录/临时文件/安装器错误）。
+- README 补目录挂载权限说明；`.gitignore` 忽略本地 `modules/amane`、`downloads/`、`media/`。
+
 ### 新增 · 面向 Amane 等重运行时模块的宿主支持
 - 运行镜像由 `alpine:3.19` 改为 `debian:bookworm-slim`（glibc 2.36），构建层仍用 alpine，Go 静态产物不受影响；附带 `procps` 便于排查进程。
 - 模块包限额上调：上传 256MB、sidecar 512MB、单文件 512MB、文件数 30000（原 160 / 128 / 128 / 1000）。
