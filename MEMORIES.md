@@ -28,3 +28,4 @@
 - 运行层换 glibc（Debian slim）后，sidecar 里的 Python / C 扩展可直接运行；纯 Go sidecar 不受影响。Debian slim 默认没有 `ps`，验收脚本依赖它时要显式装 `procps`。
 - `httputil.ReverseProxy` 能透传 `Upgrade`，是支持 WebSocket 的关键；token 注入放在 `Director`，同时删掉客户端自带的 `X-Forwarded-For`，路径前缀在 Director 里剥离最直观。
 - 慢启动 sidecar（Python / JVM）不能靠硬编码 5 秒健康检查：把超时做成 manifest 的 `healthTimeoutSec`，超时只标 degraded，进程继续跑。
+- 文档要维护三份并保持同步：`web/agent-guide.md`（AI 单文件）、`web/docs-modules.html`（人读）、`docs/SIDECAR-CONTRACT.md`（模块方契约）。每次改限额、manifest 字段、路由或生命周期后，三处一起核对，发版前用 `/docs/agent.md` 抽查。

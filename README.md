@@ -84,6 +84,7 @@ go run . -addr :8080 -modules modules -data data
 ├── web/status.html         # 宿主机状态页 /status
 ├── web/docs-modules.html   # 模块开发指南 /docs/modules
 ├── web/docs-theme.html     # 主题设计指南 /docs/theme
+├── web/agent-guide.md      # 面向 AI Agent 的单文件说明 /docs/agent.md
 ├── web/docs.css            # 两册文档共用样式
 ├── web/docs.js             # 目录滚动高亮
 ├── web/theme.css           # 主题令牌（明/暗两套），宿主与模块共用
@@ -169,6 +170,8 @@ export function mount(el, api) {
 | ANY | `/api/m/{id}/{path}` | 反代到模块 sidecar（支持流式响应与 WebSocket 升级） |
 
 模块的启用状态持久化在 `MICA_DATA_DIR/state.json`。
+
+给自动化 Agent 的完整单文件说明：`GET /docs/agent.md`（`text/markdown`），与 `/docs/modules`、`docs/SIDECAR-CONTRACT.md` 同步维护。
 
 ## 主题
 

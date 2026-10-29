@@ -2,6 +2,11 @@
 
 ## 2026-10-30
 
+### 新增 · 面向 AI Agent 的单文件开发说明
+- 新增 `/docs/agent.md`（`text/markdown`，同时支持 `/docs/agent`），覆盖包结构、manifest 全字段、前端/sidecar 契约、宿主 API、限额、验收清单与常见错误。
+- 开发文档页顶部加入 AI AGENT 版入口；README 与目录结构同步。
+- 约定：功能变更后同步核对 `web/agent-guide.md`、`web/docs-modules.html`、`docs/SIDECAR-CONTRACT.md`。
+
 ### 修复 · 目录挂载权限问题可提前发现
 - `GET /api/system` 增加 `data.writable` 与错误原因，启动时探测 `/data/tmp` 是否可写。
 - 管理页在数据目录不可写时禁用上传并提示 `chown -R 10001:10001 data modules`，避免只看到 `Failed to fetch`。

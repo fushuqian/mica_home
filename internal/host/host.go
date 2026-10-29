@@ -57,6 +57,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /docs", s.docsIndex)
 	mux.HandleFunc("GET /docs/modules", s.htmlPage("docs-modules.html"))
 	mux.HandleFunc("GET /docs/theme", s.htmlPage("docs-theme.html"))
+	mux.HandleFunc("GET /docs/agent", s.agentGuide)
+	mux.HandleFunc("GET /docs/agent.md", s.agentGuide)
 	mux.HandleFunc("GET /manage", s.htmlPage("manage.html"))
 	mux.HandleFunc("GET /status", s.htmlPage("status.html"))
 	mux.HandleFunc("/api/m/", s.moduleRoute)
@@ -100,6 +102,19 @@ func (s *Server) moduleRoute(w http.ResponseWriter, r *http.Request) {
 // docsIndex 把旧地址 /docs 跳到模块开发册。
 func (s *Server) docsIndex(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/docs/modules", http.StatusFound)
+}
+
+// agentGuide 返回面向 AI Agent 的单文件 Markdown 说明。
+func (s *Server) agentGuide(w http.ResponseWriter, r *http.Request) {
+	data, err := fs.ReadFile(s.assets, "agent-guide.md")
+	if err != nil {
+		http.Error(w, "文档未找到", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("X-Robots-Tag", "noindex")
+	w.Write(data)
 }
 
 // htmlPage 返回内嵌的 HTML 页面。
