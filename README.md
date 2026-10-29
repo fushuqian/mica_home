@@ -4,17 +4,66 @@
 
 当前为 **v0.1.0 P0 骨架**：单二进制 Go 宿主 + 模块扫描 + 模块前端动态挂载 + Docker 分发。
 
-## 快速开始
+## 安装与运行
+
+宿主以 **Docker Linux 容器**运行，模块前端在用户浏览器中执行；容器内不提供本机进程、文件与命名管道能力。需要 Docker Desktop（Windows / macOS）或 Docker Engine + Compose（Linux）。
+
+### 方式一：从 Docker Hub 安装（推荐，无需源码）
 
 ```bash
+docker run -d --name mica-home --restart unless-stopped \
+  -p 8080:8080 \
+  -v mica-data:/data \
+  -v mica-modules:/app/modules \
+  kenzong/mica-home:0.1.0
+```
+
+- `mica-data` 保存启用状态、sidecar、日志与模块用户数据；`mica-modules` 保存已安装模块。两个命名卷首次创建时会从镜像复制示例模块 `hello` / `notes`。
+- 浏览器打开 <http://localhost:8080>，入口为 `DASHBOARD`；模块管理在 `/manage`，宿主状态在 `/status`。
+- 验证：`curl http://localhost:8080/api/health` 返回 `{"status":"ok",...}`。
+- 升级：`docker rm -f mica-home` 后用新 tag 重新执行上面的 `docker run`，两个卷保留。
+- 只映射 8080；sidecar 的代理端口只在容器内回环，不对外发布。
+
+也可以用 Compose（`compose.yaml`）：
+
+```yaml
+services:
+  mica-home:
+    image: kenzong/mica-home:0.1.0
+    container_name: mica-home
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      TZ: Asia/Shanghai
+    volumes:
+      - mica-data:/data
+      - mica-modules:/app/modules
+
+volumes:
+  mica-data:
+  mica-modules:
+```
+
+### 方式二：从 GitHub 源码构建
+
+```bash
+git clone https://github.com/fushuqian/mica_home.git
+cd mica_home
 docker compose up -d --build
 ```
 
-浏览器打开 <http://localhost:8080>。模块目录挂载自仓库的 `./modules`，新增模块后刷新页面即可看到。
+- 构建阶段在 `golang:1.24-alpine` 容器内完成，本机无需安装 Go。
+- 仓库自带的 Compose 把 `./modules` 挂载到 `/app/modules`，改模块后刷新页面即可生效。
+- 国内网络拉取基础镜像超时可改用镜像加速器，或复用本机已缓存的 `golang:1.24-alpine` / `alpine:3.19`。
 
-宿主以 **Docker Linux 容器**运行，模块前端在用户浏览器中执行；容器内不提供本机进程、文件与命名管道能力。
+本地直接调试（可选，需 Go 1.24+；sidecar 相关功能仍建议在 Linux 容器内验证）：
 
-停止：`docker compose down`（运行数据保存在 `mica-data` 卷中）。
+```bash
+go run . -addr :8080 -modules modules -data data
+```
+
+停止：`docker compose down`（数据保留在命名卷中）。镜像内**不包含** mihomo 等第三方模块，需要时在 `MODULES` 页上传模块包安装。
 
 ## 目录结构
 

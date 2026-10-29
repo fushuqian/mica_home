@@ -2,6 +2,10 @@
 
 ## 2026-10-29
 
+### 文档 · 补 Docker Hub 与 GitHub 两种安装说明
+- README 新增「安装与运行」：Docker Hub 直接 `docker run`（数据/模块命名卷）、Compose 镜像版、GitHub 源码构建、本地 Go 调试、验证与升级步骤。
+- 明确镜像不内置 mihomo 等第三方模块，需在 `MODULES` 页上传安装。
+
 ### 新增 · Sidecar 首版收尾
 - 崩溃自动重启：1/2/5/10/10 秒退避，最多 5 次；稳定运行 60 秒后重置计数；watch 崩溃后回收被容器 init 收养的僵尸子进程。
 - 日志轮转：`/data/logs/<id>.log` 超过 5MB 滚动为 `.1` / `.2`。
