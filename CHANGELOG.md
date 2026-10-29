@@ -10,6 +10,7 @@
 - 权限确认：sidecar 声明了 `permissions` 的模块安装后不自动启用；`enable` 返回 428，`POST /api/modules/{id}/confirm` 记录 `id + 指纹`，升级或权限变化后需重新确认。
 - `/api/modules` 增加 `sidecarState` / `sidecarPid` / `sidecarError` / `needConfirm`；管理页展示 sidecar 状态并提供权限确认弹窗。
 - 卸载清理 sidecar 目录、日志、socket 与空用户数据目录；非空用户数据保留。
+- 补充 `internal/module` 单元测试：安装/升级、同版本 409、升级失败回滚、卸载清理与用户数据保留。
 
 ### 调整 · 首页搜索框移入模块仓库标题区
 - 顶栏移除搜索框，只保留品牌、导航与主题按钮；顶栏不再有居中的搜索位。
