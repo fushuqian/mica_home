@@ -4,6 +4,7 @@
 - 名称：Mica Home
 - 仓库：https://github.com/fushuqian/mica_home
 - 镜像：`mica-home:0.1.0`，容器名 `mica-home`，端口 8080
+- Docker Hub：`kenzong/mica-home`（`0.1.0`、`latest`），账号 `kenzong`，凭据保存在 Docker Desktop credsStore，不落仓库
 
 ## 配置
 | 变量 | 默认 | 说明 |
