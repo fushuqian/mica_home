@@ -152,8 +152,9 @@ export function mount(el, api) {
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | GET | `/api/health` | 宿主状态：版本、Go 运行时、模块数、运行时长、扫描告警 |
+| GET | `/api/system` | 安装限额（上传/解压/文件数）与数据盘剩余容量 |
 | GET | `/api/modules` | 全部模块清单（含 `sidecarState` / `sidecarPid` / `sidecarError` / `needConfirm`） |
-| POST | `/api/modules/install` | 上传 zip 模块包（multipart 字段 `file`），流式落盘并安装；上限 160MB |
+| POST | `/api/modules/install` | 上传 zip 模块包（multipart 字段 `file`），流式落盘并安装；上限 256MB |
 | POST | `/api/modules/{id}/enable` | 启用模块并启动 sidecar；权限未确认时返回 428 |
 | POST | `/api/modules/{id}/confirm` | 确认 sidecar 权限，记录 `id + 指纹`；升级或权限变化后需重新确认 |
 | POST | `/api/modules/{id}/disable` | 停用模块；同时停止 sidecar |
@@ -162,7 +163,7 @@ export function mount(el, api) {
 | GET | `/api/m/{id}/ui/{path}` | 模块前端静态资源（仅已启用模块可访问） |
 | GET | `/api/m/{id}/__status` | sidecar 进程状态 |
 | GET | `/api/m/{id}/__logs` | sidecar 日志尾部 |
-| ANY | `/api/m/{id}/{path}` | 反代到模块 sidecar |
+| ANY | `/api/m/{id}/{path}` | 反代到模块 sidecar（支持流式响应与 WebSocket 升级） |
 
 模块的启用状态持久化在 `MICA_DATA_DIR/state.json`。
 

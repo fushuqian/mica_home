@@ -45,6 +45,7 @@ func New(o Options) *Server {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", s.health)
+	mux.HandleFunc("GET /api/system", s.systemInfo)
 	mux.HandleFunc("GET /api/modules", s.listModules)
 	mux.HandleFunc("POST /api/modules/install", s.installArchive)
 	mux.HandleFunc("POST /api/modules/{id}/enable", s.enable)
@@ -254,7 +255,21 @@ func (s *Server) ShutdownSidecars() {
 }
 
 // maxUploadBytes 是模块包上传上限。
-const maxUploadBytes = 160 << 20
+const maxUploadBytes = 256 << 20
+
+// systemInfo 返回安装限额与数据盘容量，供安装页展示。
+func (s *Server) systemInfo(w http.ResponseWriter, r *http.Request) {
+	limits := module.Limits()
+	limits["uploadBytes"] = maxUploadBytes
+	free, total := diskUsage(s.reg.DataRoot())
+	writeJSON(w, http.StatusOK, map[string]any{
+		"limits": limits,
+		"data": map[string]int64{
+			"freeBytes":  free,
+			"totalBytes": total,
+		},
+	})
+}
 
 // installArchive 接收 multipart 字段 file（zip），流式落盘后安装。
 // 声明的 sidecar 权限未确认时只安装不启用，由管理页确认后再启用。
@@ -398,6 +413,7 @@ func (s *Server) sidecarLogs(w http.ResponseWriter, r *http.Request) {
 }
 
 // sidecarProxy 把 /api/m/<id>/* 转发给模块 sidecar。
+// 使用 ReverseProxy，支持 WebSocket 升级、流式响应与 Range。
 func (s *Server) sidecarProxy(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if !s.reg.IsEnabled(id) {
@@ -412,55 +428,12 @@ func (s *Server) sidecarProxy(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "sidecar 未运行")
 		return
 	}
-	client, base, token, ok := s.sidecars.Client(id)
+	proxy, ok := s.sidecars.Proxy(id, "/api/m/"+id)
 	if !ok {
 		writeError(w, http.StatusNotFound, "sidecar 未运行")
 		return
 	}
-
-	suffix := strings.TrimPrefix(r.URL.Path, "/api/m/"+id)
-	target := base + suffix
-	if r.URL.RawQuery != "" {
-		target += "?" + r.URL.RawQuery
-	}
-	req, err := http.NewRequestWithContext(r.Context(), r.Method, target, r.Body)
-	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
-		return
-	}
-	copyHeaders(req.Header, r.Header)
-	req.Header.Del("X-Mica-Token")
-	req.Header.Set("X-Mica-Token", token)
-	req.Host = ""
-	resp, err := client.Do(req)
-	if err != nil {
-		writeError(w, http.StatusBadGateway, "sidecar 请求失败: "+err.Error())
-		return
-	}
-	defer resp.Body.Close()
-	copyHeaders(w.Header(), resp.Header)
-	w.WriteHeader(resp.StatusCode)
-	io.Copy(w, resp.Body)
-}
-
-func copyHeaders(dst, src http.Header) {
-	for k, vv := range src {
-		if isHopHeader(k) {
-			continue
-		}
-		for _, v := range vv {
-			dst.Add(k, v)
-		}
-	}
-}
-
-func isHopHeader(k string) bool {
-	switch strings.ToLower(k) {
-	case "connection", "proxy-connection", "keep-alive", "proxy-authenticate",
-		"proxy-authorization", "te", "trailer", "transfer-encoding", "upgrade":
-		return true
-	}
-	return false
+	proxy.ServeHTTP(w, r)
 }
 
 // moduleAsset 挂载模块前端：/api/m/<id>/ui/<相对路径>。

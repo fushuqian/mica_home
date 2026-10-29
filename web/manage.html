@@ -72,6 +72,7 @@ button{font-family:inherit}
 }
 .panel b{font-family:var(--font-d);font-size:14px}
 .panel p{margin-top:4px;font-size:12.5px;color:var(--ink-3)}
+.panel .limits{margin-top:6px;font-family:var(--font-m);font-size:11px;letter-spacing:.02em;color:var(--ink-3)}
 .btn{
   display:inline-flex;align-items:center;justify-content:center;gap:7px;
   padding:9px 16px;border-radius:999px;font-size:12.5px;font-weight:600;cursor:pointer;
@@ -228,7 +229,8 @@ dialog.confirm::backdrop{background:color-mix(in srgb,var(--mh-bg) 55%,transpare
   <section class="panel">
     <div>
       <b>安装模块包</b>
-      <p>上传 zip：包根直接包含 manifest.json 与 frontend/，可选 sidecar/，上限 160MB。</p>
+      <p>上传 zip：包根直接包含 manifest.json 与 frontend/，可选 sidecar/。</p>
+      <p class="limits" id="limits">正在读取安装限额…</p>
     </div>
     <button class="btn" id="upload-btn" type="button">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4"/><path d="M7.5 8.5L12 4l4.5 4.5"/><path d="M4 16v3.5A1.5 1.5 0 005.5 21h13a1.5 1.5 0 001.5-1.5V16"/></svg>
@@ -281,8 +283,36 @@ const toastText = document.getElementById('toast-text');
 const uploadBtn = document.getElementById('upload-btn');
 const uploadLabel = document.getElementById('upload-label');
 const uploadFile = document.getElementById('upload-file');
+const limitsEl = document.getElementById('limits');
 
 let MODULES = [];
+let SYS = null;
+
+function fmtBytes(n) {
+  if (!n && n !== 0) return '—';
+  if (n >= 1024 ** 3) return `${(n / 1024 ** 3).toFixed(1)} GB`;
+  if (n >= 1024 ** 2) return `${(n / 1024 ** 2).toFixed(0)} MB`;
+  return `${Math.round(n / 1024)} KB`;
+}
+
+function renderLimits() {
+  if (!SYS) return;
+  const l = SYS.limits || {};
+  const free = SYS.data && SYS.data.freeBytes;
+  limitsEl.textContent = `上传上限 ${fmtBytes(l.uploadBytes)} · 解压上限 前端 ${fmtBytes(l.frontendBytes)} / sidecar ${fmtBytes(l.sidecarBytes)} · 数据盘剩余 ${fmtBytes(free)}`;
+}
+
+async function loadSystem() {
+  try {
+    const r = await api('/api/system');
+    if (r.ok) {
+      SYS = r.data;
+      renderLimits();
+    }
+  } catch {
+    limitsEl.textContent = '无法读取安装限额';
+  }
+}
 
 function iconSVG(name, size) {
   const path = ICONS[name] || ICONS.box;
@@ -417,6 +447,10 @@ async function uploadModule(file) {
     showToast('请选择 .zip 模块包');
     return;
   }
+  if (SYS && SYS.limits && file.size > SYS.limits.uploadBytes) {
+    showToast(`包大小 ${fmtBytes(file.size)} 超过上传上限 ${fmtBytes(SYS.limits.uploadBytes)}`);
+    return;
+  }
   const label = uploadLabel.textContent;
   uploadBtn.disabled = true;
   uploadLabel.textContent = '正在安装…';
@@ -472,6 +506,7 @@ uploadFile.addEventListener('change', () => {
   if (file) uploadModule(file);
 });
 
+loadSystem();
 load();
 </script>
 </body>

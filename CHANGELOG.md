@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 2026-10-30
+
+### 新增 · 面向 Amane 等重运行时模块的宿主支持
+- 运行镜像由 `alpine:3.19` 改为 `debian:bookworm-slim`（glibc 2.36），构建层仍用 alpine，Go 静态产物不受影响；附带 `procps` 便于排查进程。
+- 模块包限额上调：上传 256MB、sidecar 512MB、单文件 512MB、文件数 30000（原 160 / 128 / 128 / 1000）。
+- `manifest.sidecar` 新增 `healthTimeoutSec`（默认 5 秒，范围 1–120），适配 Python / JVM 慢启动；超时只标记 `degraded`，不杀进程。
+- 反代改用 `httputil.ReverseProxy`：支持 WebSocket / Upgrade、流式响应与 `Range`；路径前缀仍为 `/api/m/<id>`，原有模块行为不变。
+- 新增 `GET /api/system`，返回安装限额与数据盘余量；安装页展示限额、剩余空间并在上传前做大小预检。
+
 ## 2026-10-29
 
 ### 文档 · 补 Docker Hub 与 GitHub 两种安装说明

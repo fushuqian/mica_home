@@ -24,3 +24,7 @@
 - 容器内 PID 1 不会自动回收孤儿僵尸：watch 被 SIGKILL 后，它拉起的 mihomo 会变成 `Z` 且 ppid==1。宿主按 /proc/<pid>/stat 只回收 `Z` 且 ppid 为自己的进程，绝不能用 `wait4(-1)` 乱收，否则会抢走 os/exec 正在 Wait 的子进程。`Pdeathsig` 只保证子进程死，不保证被回收。
 - sidecar 权限确认的指纹要覆盖「版本 + 文件 SHA256 + permissions」，只记模块 ID 会在升级后漏掉重新确认。确认记录写进 state.json，随模块卸载一起删除。
 - 同 ID 升级用固定备份名 `.<id>.bak` 就够：安装流程已被 `installMu` 串行化，不需要时间戳；回滚就是删新目录再把备份 rename 回来。
+- 大包安装的第一道坎往往不是体积，而是文件数上限：venv / node_modules 这类目录动辄几千个文件，放宽限额必须同时看 `maxArchiveEntryCount`，否则解压前就被拒。
+- 运行层换 glibc（Debian slim）后，sidecar 里的 Python / C 扩展可直接运行；纯 Go sidecar 不受影响。Debian slim 默认没有 `ps`，验收脚本依赖它时要显式装 `procps`。
+- `httputil.ReverseProxy` 能透传 `Upgrade`，是支持 WebSocket 的关键；token 注入放在 `Director`，同时删掉客户端自带的 `X-Forwarded-For`，路径前缀在 Director 里剥离最直观。
+- 慢启动 sidecar（Python / JVM）不能靠硬编码 5 秒健康检查：把超时做成 manifest 的 `healthTimeoutSec`，超时只标 degraded，进程继续跑。

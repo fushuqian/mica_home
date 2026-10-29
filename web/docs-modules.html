@@ -293,14 +293,17 @@ sidecar/
   },
   "args": [],
   "env": {},
-  "healthPath": "/__host/health",
+  "healthPath": "/health",
+  "healthTimeoutSec": 5,
   "socketName": "mihomo-watch.sock",
   "permissions": ["process.run", "fs.write:/data/modules/mihomo"]
 }</code></pre>
       <ul class="plain">
         <li>不再声明 <code>ports</code>、<code>autoStart</code>、<code>stopOnDisable</code>：启用即启动、停用即停止，内核端口由 watch 管理。</li>
-        <li>首版只接受 <code>linux/amd64</code>，二进制必须静态编译（<code>CGO_ENABLED=0</code>）。</li>
+        <li>首版只接受 <code>linux/amd64</code>；纯 Go 建议静态编译（<code>CGO_ENABLED=0</code>）。</li>
         <li>宿主校验平台与 SHA256，并给 <code>executables</code> 加可执行位。</li>
+        <li><code>healthTimeoutSec</code> 可选，默认 5 秒，范围 1–120；Python / JVM 等启动慢的 sidecar 可调大，超时只标记 <code>degraded</code>，不会杀进程。</li>
+        <li>运行层是 Debian slim（glibc），可运行 Python 与带 C 扩展的依赖；纯 Go 静态二进制同样适用。</li>
       </ul>
 
       <h3>9.3 两条通道</h3>
@@ -345,7 +348,7 @@ sidecar/
 
       <h3>9.7 安装、升级与限额</h3>
       <ul class="plain">
-        <li>前端包 20MB、sidecar 包 128MB、单次上传 160MB。</li>
+        <li>前端包 20MB、sidecar 包 512MB、单次上传 256MB、文件数 30000。</li>
         <li>同 ID 版本不同允许升级：停旧 → 备份 → 替换 → 启动 → 失败回滚；同版本重装拒绝。</li>
         <li>安装页展示二进制、平台、哈希、体积与权限；启用时确认一次，升级后重新确认。</li>
         <li>宿主只执行声明过的二进制，参数数组直传，不经过 shell，不传递宿主机密钥。</li>
@@ -353,7 +356,7 @@ sidecar/
 
       <h3>9.8 验收要点</h3>
       <ul class="plain">
-        <li>启用后 5 秒内 <code>/api/m/{id}/__status</code> 为 running，模块通道 <code>/status</code> 显示内核运行。</li>
+        <li>启用后 <code>healthTimeoutSec</code>（默认 5 秒）内 <code>/api/m/{id}/__status</code> 为 running，模块通道 <code>/status</code> 显示内核运行。</li>
         <li>停用后 watch 与内核两个进程都消失；卸载后 <code>/data/sidecar/&lt;id&gt;</code> 被删除。</li>
         <li>kill watch 或 kill 内核后能自动恢复；宿主重启后已启用模块恢复。</li>
         <li><code>docker port mica-home</code> 看不到 7890；宿主机访问 7890 失败。</li>
@@ -364,7 +367,7 @@ sidecar/
 
     <section id="impl">
       <h2><span class="n">10</span>宿主侧实现</h2>
-      <p><b>首版已完成：</b>流式上传与双目标安装、平台/SHA256 校验、sidecar 启停、崩溃退避重启、同 ID 版本升级与回滚、权限确认、日志轮转、<code>__status</code>/<code>__logs</code> 与 <code>/api/m/{id}/*</code> 反代。双 token 管理通道与 service/shared sidecar 仍不在首版范围。</p>
+      <p><b>首版已完成：</b>流式上传与双目标安装、平台/SHA256 校验、sidecar 启停、崩溃退避重启、同 ID 版本升级与回滚、权限确认、日志轮转、可配置健康检查、<code>__status</code>/<code>__logs</code> 与 <code>/api/m/{id}/*</code> 反代（含 WebSocket）。双 token 管理通道与 service/shared sidecar 仍不在首版范围。</p>
 
       <h3>10.1 代码结构</h3>
       <pre><code>internal/module/module.go        # manifest.sidecar 解析、安装、升级、卸载
@@ -374,13 +377,14 @@ internal/host/host.go            # 安装/启用/确认/卸载与 /api/m/{id}/* 
 
       <h3>10.2 安装</h3>
       <ul class="plain">
-        <li>上传上限 160MB；<code>multipart</code> 流式写入 <code>/data/tmp</code>，不再整包读入内存。</li>
-        <li>打开 zip 后分类：<code>frontend/</code> 与 <code>manifest.json</code> 归模块包；<code>sidecar/</code> 归 sidecar 包；分别限额 20MB / 128MB。</li>
+        <li>上传上限 256MB；<code>multipart</code> 流式写入 <code>/data/tmp</code>，不再整包读入内存。</li>
+        <li>打开 zip 后分类：<code>frontend/</code> 与 <code>manifest.json</code> 归模块包；<code>sidecar/</code> 归 sidecar 包；分别限额 20MB / 512MB，单文件 512MB，文件数 30000。</li>
         <li>校验 <code>platform</code>、每个文件的 <code>sha256</code>，给 <code>executables</code> 加 <code>0755</code>。</li>
         <li>事务化：先解到临时目录，全部通过后再落盘；同版本重装 409，版本不同进入升级。</li>
         <li>升级：停旧 watch → 备份旧模块与 sidecar → 替换 → 重新扫描 → 失败自动回滚旧版本。</li>
         <li>安装后不自动启用：sidecar 声明了 <code>permissions</code> 时先确认，再由用户启用；无权限声明则直接启用。</li>
         <li>安装时创建 <code>/data/modules/&lt;id&gt;</code>；sidecar 文件只进 <code>/data/sidecar/&lt;id&gt;</code>。</li>
+        <li>安装页展示上传/解压上限与数据盘剩余空间；解压峰值约为 zip + 解压总和的 2 倍，大包前先确认磁盘余量。</li>
       </ul>
 
       <h3>10.3 运行时</h3>
@@ -389,7 +393,7 @@ internal/host/host.go            # 安装/启用/确认/卸载与 /api/m/{id}/* 
         <tbody>
           <tr><td>启动</td><td><code>exec.Command</code> 直传 args（无 shell），注入 env，工作目录 <code>/data/modules/&lt;id&gt;</code>，stdout/stderr 写日志</td></tr>
           <tr><td>进程组</td><td><code>Setpgid</code> + <code>Pdeathsig</code>；停用时先 SIGTERM，12 秒后 SIGKILL 整个进程组</td></tr>
-          <tr><td>就绪</td><td>轮询 manifest 的 <code>healthPath</code>（默认 <code>/health</code>），≤5 秒；失败标记 <code>degraded</code></td></tr>
+          <tr><td>就绪</td><td>轮询 manifest 的 <code>healthPath</code>（默认 <code>/health</code>），超时为 <code>healthTimeoutSec</code>（默认 5 秒）；失败标记 <code>degraded</code></td></tr>
           <tr><td>崩溃</td><td>1/2/5/10/10 秒退避重启，最多 5 次；稳定运行 60 秒后重置计数，之后标记 <code>degraded</code> 并停止重启</td></tr>
           <tr><td>日志</td><td><code>/data/logs/&lt;id&gt;.log</code>，超过 5MB 滚动为 <code>.1</code>/<code>.2</code></td></tr>
           <tr><td>宿主退出</td><td>先停 HTTP，再停全部 watch；容器退出不依赖子进程自行退出</td></tr>
@@ -400,10 +404,10 @@ internal/host/host.go            # 安装/启用/确认/卸载与 /api/m/{id}/* 
 
       <h3>10.4 反代</h3>
       <ul class="plain">
-        <li>路由优先级：<code>/info</code>、<code>/ui/*</code>、<code>/__status</code>、<code>/__logs</code> 由宿主处理；其余 <code>ANY /api/m/{id}/{path...}</code> 才转发。</li>
+        <li>使用标准库 <code>httputil.ReverseProxy</code>：保留方法、查询、请求体、状态码、响应头与 <code>Range</code>。</li>
+        <li>支持 <b>WebSocket / HTTP Upgrade</b> 与流式响应（<code>FlushInterval = -1</code>），可用于实时日志与任务进度；模块前端不需要为实时推送改轮询。</li>
         <li>优先 <code>/data/run/&lt;socketName&gt;</code> 的 Unix socket；不支持时分配回环端口并注入 <code>MICA_SIDECAR_ADDR</code>。</li>
-        <li>转发保留方法、查询、请求体、状态码与 <code>Content-Type</code>；过滤 hop-by-hop 头。</li>
-        <li>注入 <code>X-Mica-Token</code>；拒绝 <code>/__host/*</code>；未启用模块 403，token 不匹配 401。</li>
+        <li>注入 <code>X-Mica-Token</code> 并覆盖客户端自带值；拒绝 <code>/__host/*</code>；未启用模块 403，token 不匹配 401。</li>
         <li>管理通道首版复用 <code>X-Mica-Token</code>，由宿主内部直接调用 <code>healthPath</code>；反代仍拒绝 <code>/__host/*</code>，双 token 待补。</li>
       </ul>
 
@@ -436,7 +440,7 @@ POST /api/modules/&lt;id&gt;/confirm     // 记录 id + 指纹，升级或改权
         <li>假 sidecar：提供 <code>/health</code>、模块 <code>/status</code>，用于联调。</li>
         <li>安装器：流式上传、双目标解压、限额、平台/哈希、事务落盘。<b>已完成</b></li>
         <li>supervisor：启停、进程组、日志轮转、退避重启、宿主重启恢复。<b>已完成</b></li>
-        <li>反代：Unix/TCP、token、403/401、状态与日志接口。<b>已完成</b></li>
+        <li>反代：Unix/TCP、token、403/401、状态与日志接口、WebSocket 升级。<b>已完成</b></li>
         <li>UI：安装展示、权限确认、管理页 sidecar 状态。<b>已完成</b></li>
         <li>升级与回滚：停旧 → 备份 → 替换 → 启动 → 失败回滚。<b>已完成</b></li>
         <li>接真实 mihomo：替换假 sidecar，只做联调。<b>已完成（2.0.1 → 2.0.3 实测）</b></li>
@@ -447,6 +451,7 @@ POST /api/modules/&lt;id&gt;/confirm     // 记录 id + 指纹，升级或改权
         <li>只支持 <code>linux/amd64</code>、managed 模式；不做 service / shared sidecar。</li>
         <li>一个模块最多一个 sidecar；不做签名校验，只做 SHA256。</li>
         <li>日志只提供 tail，不做 SSE 流；7890 等业务端口不发布。</li>
+        <li>反代已支持 WebSocket 与流式响应，模块可直接使用原生实时接口。</li>
         <li>管理请求仍复用 <code>X-Mica-Token</code>，<code>/__host/*</code> 双 token 通道留待后续。</li>
         <li>mihomo 的进程、配置、订阅全部由 watch 负责，宿主不实现任何 mihomo 逻辑。</li>
       </ul>

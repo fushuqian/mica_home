@@ -71,11 +71,12 @@ modules/<id>/                 # 模块前端
 | 项 | 限制 |
 |---|---|
 | 前端包（manifest + frontend） | 20MB |
-| sidecar 包（sidecar/） | 128MB |
-| 单次上传 zip | 160MB |
-| 平台 | 首版仅 `linux/amd64`，必须静态编译（`CGO_ENABLED=0`） |
+| sidecar 包（sidecar/） | 512MB |
+| 单次上传 zip | 256MB |
+| 包内文件数 | 30000 |
+| 平台 | 首版仅 `linux/amd64`；纯 Go 建议静态编译（`CGO_ENABLED=0`），含 Python/C 扩展的运行时使用镜像的 glibc（Debian slim） |
 
-宿主会校验平台与 `sha256`；不匹配直接拒绝安装。
+宿主会校验平台与 `sha256`；不匹配直接拒绝安装。解压峰值约为 zip + 解压总和的 2 倍，安装前请确认 `/data` 余量。
 
 ## 3. manifest 契约
 
@@ -96,6 +97,7 @@ modules/<id>/                 # 模块前端
     "args": [],
     "env": {},
     "healthPath": "/health",
+    "healthTimeoutSec": 5,
     "socketName": "mihomo-watch.sock",
     "permissions": ["process.run", "fs.write:/data/modules/mihomo", "net.listen"]
   }
@@ -111,6 +113,7 @@ modules/<id>/                 # 模块前端
 | `args` | 否 | 参数数组，不经过 shell；支持 `${MICA_*}` 占位符 |
 | `env` | 否 | 额外环境变量；不得包含宿主机密钥 |
 | `healthPath` | 否 | 默认 `/health`（管理通道） |
+| `healthTimeoutSec` | 否 | 健康检查超时，默认 5 秒，范围 1–120；适合 Python / JVM 等启动较慢的进程 |
 | `socketName` | 否 | 指定后宿主使用 `/data/run/<socketName>`；缺省时宿主分配回环端口 |
 | `permissions` | 是 | 权限声明，安装展示、启用确认使用 |
 
@@ -167,7 +170,9 @@ watch 不要使用 `info`、`ui`、`__` 开头的路径作为模块业务接口�
 
 ### 4.3 模块通道
 
-宿主把 `/api/m/<id>/<path>` 反代到 watch 的同一路径，保留方法、请求体、查询参数、状态码、`Content-Type`。
+宿主把 `/api/m/<id>/<path>` 反代到 watch 的同一路径，保留方法、请求体、查询参数、状态码、`Content-Type`、`Range` 与流式响应。
+
+宿主使用 `httputil.ReverseProxy`，**支持 WebSocket / HTTP Upgrade 透传**，watch 可以直接暴露实时日志、任务进度等推送接口（如 `GET /api/ws`）。
 
 watch 在模块通道上自行定义业务接口，宿主不解析、不限制具体路径。例如：
 
@@ -205,7 +210,7 @@ watch 在模块通道上自行定义业务接口，宿主不解析、不限制�
 | 事件 | 宿主行为 | watch 行为 |
 |---|---|---|
 | 安装 | 解压前端与 sidecar、校验平台/哈希、创建 `/data/modules/<id>/` | — |
-| 启用 | 启动 watch，等待 `/__host/health` 通过（≤5 秒） | 启动 mihomo，准备控制口 |
+| 启用 | 启动 watch，等待 `healthPath` 通过（≤ `healthTimeoutSec`，默认 5 秒） | 启动 mihomo，准备控制口 |
 | 停用 | SIGTERM watch，10 秒后杀整个进程组 | 停止 mihomo，确保子进程退出 |
 | 卸载 | 停 watch → 删 `/data/sidecar/<id>` → 保留用户数据 | 退出前清理 mihomo |
 | 升级 | 停旧 watch → 备份 → 替换 → 启动 → 失败回滚 | 按新版本启动 |
@@ -282,9 +287,10 @@ watch 在模块通道上自行定义业务接口，宿主不解析、不限制�
 ## 10. 验收清单
 
 - [ ] 安装后 `/data/sidecar/<id>/` 存在 watch 与 mihomo；`modules/<id>/` 内无二进制。
-- [ ] 启用后 ≤5 秒 `__status` 为 `running`。
+- [ ] 启用后 `healthTimeoutSec`（默认 5 秒）内 `__status` 为 `running`。
 - [ ] `/status` 显示 mihomo `running`、PID、版本、实际端口。
 - [ ] `/api/m/<id>/version` 返回 mihomo 版本，前端无需知道端口与 secret。
+- [ ] `/api/m/<id>/api/*` 转发正常，流式响应即时可见；`/api/m/<id>/api/ws` 能完成 WebSocket 升级。
 - [ ] 停用后 `ps` 中 watch 与 mihomo **都消失**。
 - [ ] `kill mihomo` → watch 自动拉起；`kill watch` → 宿主拉起并清理旧 mihomo。
 - [ ] 宿主重启后，已启用模块自动恢复。
@@ -293,7 +299,7 @@ watch 在模块通道上自行定义业务接口，宿主不解析、不限制�
 - [ ] 未启用模块访问 `/api/m/<id>/*` 返回 403。
 - [ ] 模块前端访问 `/api/m/<id>/__host/*` 返回 403。
 - [ ] 无 `X-Mica-Token` 的模块请求返回 401；无 `X-Mica-Host-Token` 的管理请求返回 401。
-- [ ] 宿主能通过 `/__host/health` 判断就绪，模块无关接口不受影响。
+- [ ] 宿主能通过 `healthPath` 判断就绪，模块无关接口不受影响。
 - [ ] 错误平台或 SHA256 不匹配的包安装失败。
 - [ ] 升级失败能回滚到旧版本并恢复运行。
 - [ ] 日志文件存在且按 5MB × 3 滚动。

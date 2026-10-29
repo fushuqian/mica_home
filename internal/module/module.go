@@ -27,15 +27,24 @@ var ErrNotFound = errors.New("模块不存在")
 var ErrAlreadyExists = errors.New("模块已存在")
 
 const (
-	maxArchiveBytes      = 160 << 20
 	maxFrontendBytes     = 20 << 20
-	maxSidecarBytes      = 128 << 20
-	maxArchiveEntryBytes = 128 << 20
-	maxArchiveEntryCount = 1000
+	maxSidecarBytes      = 512 << 20
+	maxArchiveEntryBytes = 512 << 20
+	maxArchiveEntryCount = 30000
 	logBackupCount       = 2
 )
 
 var idPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{1,31}$`)
+
+// Limits 返回模块包的解压限额，供安装页展示与接口返回。
+func Limits() map[string]int64 {
+	return map[string]int64{
+		"frontendBytes": maxFrontendBytes,
+		"sidecarBytes":  maxSidecarBytes,
+		"entryBytes":    maxArchiveEntryBytes,
+		"entries":       maxArchiveEntryCount,
+	}
+}
 
 // Frontend 描述模块前端的入口文件（远程 ESM，必须导出 mount(el, api)）。
 type Frontend struct {
@@ -51,15 +60,16 @@ type Backend struct {
 
 // Sidecar 描述模块附带的容器内常驻进程。
 type Sidecar struct {
-	Binary      string            `json:"binary"`
-	Executables []string          `json:"executables"`
-	Platform    string            `json:"platform"`
-	SHA256      map[string]string `json:"sha256"`
-	Args        []string          `json:"args"`
-	Env         map[string]string `json:"env"`
-	HealthPath  string            `json:"healthPath"`
-	SocketName  string            `json:"socketName"`
-	Permissions []string          `json:"permissions"`
+	Binary           string            `json:"binary"`
+	Executables      []string          `json:"executables"`
+	Platform         string            `json:"platform"`
+	SHA256           map[string]string `json:"sha256"`
+	Args             []string          `json:"args"`
+	Env              map[string]string `json:"env"`
+	HealthPath       string            `json:"healthPath"`
+	HealthTimeoutSec int               `json:"healthTimeoutSec"`
+	SocketName       string            `json:"socketName"`
+	Permissions      []string          `json:"permissions"`
 }
 
 // Manifest 是模块与宿主之间唯一的契约。字段一旦定型，后续改动等同于重做模块生态。
@@ -783,6 +793,9 @@ func load(dir string) (*Module, error) {
 		}
 		if !strings.HasPrefix(m.Sidecar.HealthPath, "/") {
 			return nil, errors.New("sidecar.healthPath 必须以 / 开头")
+		}
+		if m.Sidecar.HealthTimeoutSec != 0 && (m.Sidecar.HealthTimeoutSec < 1 || m.Sidecar.HealthTimeoutSec > 120) {
+			return nil, errors.New("sidecar.healthTimeoutSec 必须在 1-120 秒之间")
 		}
 		if m.Sidecar.SocketName != "" {
 			if strings.ContainsAny(m.Sidecar.SocketName, `/\:`) || m.Sidecar.SocketName == "." || m.Sidecar.SocketName == ".." {

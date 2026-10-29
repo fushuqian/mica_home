@@ -9,6 +9,8 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -50,6 +52,7 @@ type process struct {
 	addr       string
 	token      string
 	healthPath string
+	healthWait time.Duration
 
 	mu        sync.Mutex
 	cmd       *exec.Cmd
@@ -129,17 +132,6 @@ func (m *Manager) Status(id string) Status {
 	return p.status()
 }
 
-// Endpoint 返回代理所需的地址与 token。
-func (m *Manager) Endpoint(id string) (addr, token string, path string, ok bool) {
-	m.mu.Lock()
-	p := m.procs[id]
-	m.mu.Unlock()
-	if p == nil || !p.isActive() {
-		return "", "", "", false
-	}
-	return p.addr, p.token, p.healthPath, true
-}
-
 // Logs 返回日志尾部。
 func (m *Manager) Logs(id string, tail int) string {
 	m.mu.Lock()
@@ -196,6 +188,10 @@ func newProcess(dataRoot string, mod *module.Module) (*process, error) {
 	if health == "" {
 		health = "/health"
 	}
+	healthWait := 5 * time.Second
+	if sc.HealthTimeoutSec > 0 {
+		healthWait = time.Duration(sc.HealthTimeoutSec) * time.Second
+	}
 	return &process{
 		mod:        mod,
 		sidecarID:  mod.ID,
@@ -208,6 +204,7 @@ func newProcess(dataRoot string, mod *module.Module) (*process, error) {
 		addr:       addr,
 		token:      randomToken(),
 		healthPath: health,
+		healthWait: healthWait,
 		state:      "stopped",
 	}, nil
 }
@@ -371,7 +368,7 @@ func (p *process) spawn() (int, error) {
 }
 
 func (p *process) checkHealth(pid int) {
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(p.healthWait)
 	for time.Now().Before(deadline) {
 		if p.isStopping() {
 			return
@@ -517,15 +514,16 @@ func envList(env map[string]string) []string {
 }
 
 func (p *process) get(path string) (int, error) {
-	client, base, err := p.client()
+	tr, base, err := p.transport()
 	if err != nil {
 		return 0, err
 	}
-	req, err := http.NewRequest(http.MethodGet, base+path, nil)
+	req, err := http.NewRequest(http.MethodGet, base.String()+path, nil)
 	if err != nil {
 		return 0, err
 	}
 	req.Header.Set("X-Mica-Token", p.token)
+	client := &http.Client{Transport: tr, Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return 0, err
@@ -535,34 +533,69 @@ func (p *process) get(path string) (int, error) {
 	return resp.StatusCode, nil
 }
 
-// Client 返回访问该 sidecar 的 HTTP 客户端与基地址。
-func (m *Manager) Client(id string) (*http.Client, string, string, bool) {
+// Proxy 返回转发到该 sidecar 的反向代理；prefix 为需要剥离的路径前缀。
+func (m *Manager) Proxy(id, prefix string) (*httputil.ReverseProxy, bool) {
 	m.mu.Lock()
 	p := m.procs[id]
 	m.mu.Unlock()
 	if p == nil || !p.isActive() {
-		return nil, "", "", false
+		return nil, false
 	}
-	client, base, err := p.client()
+	tr, base, err := p.transport()
 	if err != nil {
-		return nil, "", "", false
+		return nil, false
 	}
-	return client, base, p.token, true
+	token := p.token
+	proxy := &httputil.ReverseProxy{
+		Director: func(req *http.Request) {
+			req.URL.Scheme = base.Scheme
+			req.URL.Host = base.Host
+			if prefix != "" {
+				req.URL.Path = strings.TrimPrefix(req.URL.Path, prefix)
+				if req.URL.Path == "" {
+					req.URL.Path = "/"
+				}
+				if req.URL.RawPath != "" {
+					req.URL.RawPath = strings.TrimPrefix(req.URL.RawPath, prefix)
+					if req.URL.RawPath == "" {
+						req.URL.RawPath = "/"
+					}
+				}
+			}
+			req.Header.Del("X-Mica-Token")
+			req.Header.Set("X-Mica-Token", token)
+			req.Header.Del("X-Forwarded-For")
+		},
+		Transport:     tr,
+		FlushInterval: -1,
+		ErrorHandler: func(w http.ResponseWriter, req *http.Request, err error) {
+			w.Header().Set("Content-Type", "application/json; charset=utf-8")
+			w.WriteHeader(http.StatusBadGateway)
+			fmt.Fprintf(w, `{"error":"sidecar 请求失败: %s"}`, strings.ReplaceAll(err.Error(), `"`, `'`))
+		},
+	}
+	return proxy, true
 }
 
-func (p *process) client() (*http.Client, string, error) {
+func (p *process) transport() (http.RoundTripper, *url.URL, error) {
 	if strings.HasPrefix(p.addr, "unix://") {
 		sock := strings.TrimPrefix(p.addr, "unix://")
+		base := &url.URL{Scheme: "http", Host: "sidecar"}
 		tr := &http.Transport{
 			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 				var d net.Dialer
 				return d.DialContext(ctx, "unix", sock)
 			},
+			MaxIdleConns:    20,
+			IdleConnTimeout: 90 * time.Second,
 		}
-		return &http.Client{Transport: tr, Timeout: 30 * time.Second}, "http://sidecar", nil
+		return tr, base, nil
 	}
-	host := strings.TrimPrefix(p.addr, "tcp://")
-	return &http.Client{Timeout: 30 * time.Second}, "http://" + host, nil
+	base, err := url.Parse("http://" + strings.TrimPrefix(p.addr, "tcp://"))
+	if err != nil {
+		return nil, nil, err
+	}
+	return http.DefaultTransport.(*http.Transport).Clone(), base, nil
 }
 
 func freePort() (int, error) {
