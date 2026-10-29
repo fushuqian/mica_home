@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Host Status · Mica Home</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/theme.css">
+<script src="/theme.js"></script>
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:var(--font-b);font-size:15px;line-height:1.6;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden;
+}
+::selection{background:color-mix(in srgb, var(--mh-accent) 22%, transparent)}
+h1,h2,h3{margin:0;font-family:var(--font-d);font-weight:700}
+p{margin:0}
+button{font-family:inherit}
+.mono{font-family:var(--font-m);font-variant-numeric:tabular-nums}
+
+.scene{position:fixed;inset:0;z-index:-1;overflow:hidden;
+  background:linear-gradient(180deg,var(--mh-bg-1) 0%,var(--mh-bg-2) 58%,var(--mh-bg-3) 100%);}
+.scene::before{
+  content:"";position:absolute;inset:-20%;
+  background-image:linear-gradient(var(--mh-grid) 1px,transparent 1px),
+                   linear-gradient(90deg,var(--mh-grid) 1px,transparent 1px);
+  background-size:76px 76px;
+  -webkit-mask-image:radial-gradient(ellipse at 50% 10%,#000 0%,rgba(0,0,0,.5) 45%,transparent 78%);
+  mask-image:radial-gradient(ellipse at 50% 10%,#000 0%,rgba(0,0,0,.5) 45%,transparent 78%);
+}
+.blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:.7}
+.blob.b1{width:560px;height:560px;left:-160px;top:-200px;background:var(--mh-blob-1)}
+.blob.b2{width:480px;height:480px;right:-120px;top:60px;background:var(--mh-blob-2)}
+
+.topbar{
+  position:sticky;top:14px;z-index:60;max-width:1240px;width:calc(100% - 36px);margin:14px auto 0;
+  display:flex;align-items:center;gap:26px;padding:9px 10px 9px 18px;border-radius:999px;
+  background:linear-gradient(150deg,var(--mh-glass-a),var(--mh-glass-b));
+  -webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%);
+  border:1px solid var(--mh-glass-border);
+  box-shadow:inset 0 1px 0 var(--mh-inset), var(--shadow);
+  animation:drop .8s var(--ease) both;
+}
+@keyframes drop{from{opacity:0;transform:translateY(-14px)}to{opacity:1;transform:none}}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit}
+.brand-name{display:flex;flex-direction:column;line-height:1.15}
+.brand-name b{font-family:var(--font-d);font-weight:800;font-size:14px}
+.brand-name span{font-family:var(--font-m);font-size:10px;letter-spacing:.16em;color:var(--ink-3);text-transform:uppercase}
+.spacer{flex:1}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+
+.wrap{max-width:1240px;margin:0 auto;padding:54px 22px 80px;animation:rise .8s var(--ease) .05s both}
+@keyframes rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+.head{margin-bottom:26px}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;
+  font-family:var(--font-m);font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--teal-deep);
+}
+.eyebrow i{width:6px;height:6px;border-radius:2px;background:var(--teal);box-shadow:0 0 0 4px color-mix(in srgb, var(--mh-accent) 14%, transparent)}
+.head h1{font-size:clamp(30px,4.4vw,46px);font-weight:800;letter-spacing:-.035em;line-height:1.1}
+.head p{margin-top:10px;color:var(--ink-2);font-size:14px;max-width:60ch}
+
+.panel{
+  padding:24px 26px 22px;border-radius:var(--r-lg);
+  background:linear-gradient(152deg,var(--mh-card-a),var(--mh-card-b));
+  -webkit-backdrop-filter:blur(22px) saturate(155%);backdrop-filter:blur(22px) saturate(155%);
+  border:1px solid var(--mh-glass-border);
+  box-shadow:inset 0 1px 0 var(--mh-inset), var(--shadow);
+}
+.panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px}
+.panel-head h2{font-size:12px;font-family:var(--font-m);letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3);font-weight:500}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px 24px;margin-bottom:22px}
+.stat b{display:block;font-family:var(--font-d);font-size:34px;font-weight:800;letter-spacing:-.02em}
+.stat span{font-family:var(--font-m);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+.rows{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 32px;
+  padding-top:18px;border-top:1px solid var(--line);
+}
+.row{display:flex;align-items:center;justify-content:space-between;gap:14px;font-size:13px}
+.row span{color:var(--ink-3);font-size:12.5px;flex:0 0 auto}
+.row b{font-family:var(--font-m);font-weight:500;font-size:12.5px;text-align:right;overflow-wrap:anywhere}
+.row.wide{grid-column:1/-1}
+
+.note{
+  margin-top:18px;padding:12px 14px;border-radius:12px;font-size:12.5px;
+  color:var(--mh-warn-text);background:var(--mh-warn-bg);border:1px solid var(--mh-warn-line);
+}
+.note[hidden]{display:none}
+
+@media (max-width:1000px){
+  .rows{grid-template-columns:1fr}
+}
+@media (max-width:640px){
+  .topbar{gap:12px;padding:8px 8px 8px 14px}
+  .wrap{padding:32px 16px 60px}
+  .panel{padding:18px 16px}
+  .stat-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .stat b{font-size:26px}
+}
+</style>
+</head>
+<body>
+<div class="scene" aria-hidden="true"><div class="blob b1"></div><div class="blob b2"></div></div>
+
+<header class="topbar">
+  <a class="brand" href="/">
+    <svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true">
+      <rect x="2.5" y="2.5" width="11" height="11" rx="3.5" fill="currentColor"/>
+      <rect x="16.5" y="2.5" width="11" height="11" rx="3.5" fill="var(--mh-accent)"/>
+      <rect x="2.5" y="16.5" width="11" height="11" rx="3.5" stroke="currentColor" stroke-width="1.4"/>
+      <rect x="16.5" y="16.5" width="11" height="11" rx="3.5" fill="currentColor" opacity=".22"/>
+    </svg>
+    <span class="brand-name"><b>Mica Home</b><span>Modular Shell</span></span>
+  </a>
+  <nav class="topbar-nav" aria-label="主导航">
+    <a href="/">DASHBOARD</a>
+    <a href="/manage">MODULES</a>
+    <a href="/status" aria-current="page">STATUS</a>
+    <a href="/docs/modules">DEVGUIDES</a>
+  </nav>
+  <div class="spacer"></div>
+  <button class="theme-toggle" data-theme-toggle type="button" aria-pressed="false" aria-label="切换主题" title="切换主题">
+    <svg class="i-sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3L17 7M7 17l-1.7 1.7"/></svg>
+    <svg class="i-moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.3A8.6 8.6 0 019.7 3.5a8.7 8.7 0 1010.8 10.8z"/></svg>
+  </button>
+</header>
+
+<main class="wrap">
+  <div class="head">
+    <div class="eyebrow"><i></i>Host Status</div>
+    <h1>宿主机运行状态</h1>
+    <p>宿主版本、模块启用情况与运行时长，每 5 秒自动刷新。</p>
+  </div>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Runtime</h2>
+      <span class="live" style="display:inline-flex;align-items:center;gap:6px;font-family:var(--font-m);font-size:10.5px;color:var(--teal-deep);letter-spacing:.1em">
+        <i style="width:6px;height:6px;border-radius:50%;background:var(--teal);animation:blink 1.8s ease-in-out infinite"></i>LIVE
+      </span>
+    </div>
+    <div class="stat-grid">
+      <div class="stat"><b class="mono" id="m-total">—</b><span>模块总数</span></div>
+      <div class="stat"><b class="mono" id="m-enabled">—</b><span>已启用</span></div>
+      <div class="stat"><b class="mono" id="uptime">—</b><span>运行时长</span></div>
+    </div>
+    <div class="rows" id="rows">
+      <div class="row"><span>宿主版本</span><b>—</b></div>
+      <div class="row"><span>运行时</span><b>—</b></div>
+      <div class="row"><span>已启用模块</span><b>—</b></div>
+      <div class="row"><span>模块目录</span><b>MICA_MODULES_DIR</b></div>
+      <div class="row wide"><span>扫描告警</span><b id="warnings">—</b></div>
+    </div>
+    <div class="note" id="note" hidden></div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+async function jsonFetch(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+function fmtUptime(sec) {
+  if (sec < 60) return sec + 's';
+  const m = Math.floor(sec / 60);
+  if (m < 60) return `${m}m ${sec % 60}s`;
+  return `${Math.floor(m / 60)}h ${m % 60}m`;
+}
+
+async function load() {
+  try {
+    const [h, modules] = await Promise.all([jsonFetch('/api/health'), jsonFetch('/api/modules')]);
+    const enabled = modules.filter(m => m.enabled).length;
+    $('m-total').textContent = h.modules;
+    $('m-enabled').textContent = enabled;
+    $('uptime').textContent = fmtUptime(h.uptimeSec);
+    $('rows').innerHTML = `
+      <div class="row"><span>宿主版本</span><b>v${h.version}</b></div>
+      <div class="row"><span>运行时</span><b>${h.go}</b></div>
+      <div class="row"><span>已启用模块</span><b>${enabled} / ${h.modules}</b></div>
+      <div class="row"><span>模块目录</span><b>MICA_MODULES_DIR</b></div>
+      <div class="row wide"><span>扫描告警</span><b>${(h.warnings && h.warnings.length) ? h.warnings.join('；') : '无'}</b></div>`;
+
+    const note = $('note');
+    if (h.warnings && h.warnings.length) {
+      note.hidden = false;
+      note.textContent = h.warnings.join('；');
+    } else {
+      note.hidden = true;
+    }
+  } catch (err) {
+    const note = $('note');
+    note.hidden = false;
+    note.textContent = '无法连接宿主：' + err.message;
+  }
+}
+
+load();
+setInterval(load, 5000);
+</script>
+</body>
+</html>

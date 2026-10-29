@@ -1,5 +1,22 @@
 /* Mica Home 主题令牌 —— 宿主与模块共用的唯一颜色来源。
-   模块适配规则见 /docs 的「主题开发规范」。 */
+   模块适配规则见 /docs/theme 的「主题设计指南」。 */
+
+/* 正文字体：HarmonyOS Sans SC（Regular / Bold 两个 woff2，随仓库分发）。
+   本机已安装时优先用本地字体，避免重复下载。 */
+@font-face {
+  font-family: "HarmonyOS Sans SC";
+  src: local("HarmonyOS Sans SC Regular"), local("HarmonyOS Sans SC"), url("/fonts/HarmonyOS_Sans_SC_Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "HarmonyOS Sans SC";
+  src: local("HarmonyOS Sans SC Bold"), url("/fonts/HarmonyOS_Sans_SC_Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
 
 :root {
   color-scheme: light;
@@ -66,8 +83,8 @@
   --mh-ease: cubic-bezier(.2, .8, .2, 1);
 
   /* 字体 */
-  --mh-font-d: "Bricolage Grotesque", "PingFang SC", "Microsoft YaHei", sans-serif;
-  --mh-font-b: "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --mh-font-d: "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --mh-font-b: "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
   --mh-font-m: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
 
   /* 旧变量名别名，供历史样式引用 */

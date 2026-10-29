@@ -2,16 +2,21 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"flag"
 	"io/fs"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
+	"time"
 
 	"github.com/fushuqian/mica_home/internal/host"
 	"github.com/fushuqian/mica_home/internal/module"
+	"github.com/fushuqian/mica_home/internal/sidecar"
 )
 
 const version = "0.1.0"
@@ -35,10 +40,28 @@ func main() {
 		log.Printf("模块告警: %s", warning)
 	}
 
-	srv := host.New(host.Options{Registry: reg, Assets: assets, Version: version})
+	srv := host.New(host.Options{
+		Registry: reg,
+		Assets:   assets,
+		Version:  version,
+		Sidecars: sidecar.New(*dataDir),
+	})
+	srv.StartSidecars()
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	httpSrv := &http.Server{Addr: *addr, Handler: srv.Handler()}
+	go func() {
+		<-ctx.Done()
+		srv.ShutdownSidecars()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = httpSrv.Shutdown(shutdownCtx)
+	}()
 
 	log.Printf("Mica Home v%s 启动于 %s（模块目录: %s）", version, *addr, *modulesDir)
-	if err := http.ListenAndServe(*addr, srv.Handler()); err != nil {
+	if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("服务退出: %v", err)
 	}
 }

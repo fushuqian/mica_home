@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>主题设计 · Mica Home</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/theme.css">
+<link rel="stylesheet" href="/docs.css">
+<script src="/theme.js"></script>
+</head>
+<body>
+<div class="scene" aria-hidden="true"><div class="blob b1"></div><div class="blob b2"></div></div>
+
+<header class="topbar">
+  <a class="brand" href="/">
+    <svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true">
+      <rect x="2.5" y="2.5" width="11" height="11" rx="3.5" fill="currentColor"/>
+      <rect x="16.5" y="2.5" width="11" height="11" rx="3.5" fill="var(--mh-accent)"/>
+      <rect x="2.5" y="16.5" width="11" height="11" rx="3.5" stroke="currentColor" stroke-width="1.4"/>
+      <rect x="16.5" y="16.5" width="11" height="11" rx="3.5" fill="currentColor" opacity=".22"/>
+    </svg>
+    <span class="brand-name"><b>Mica Home</b><span>Modular Shell</span></span>
+  </a>
+  <nav class="topbar-nav" aria-label="主导航">
+    <a href="/">DASHBOARD</a>
+    <a href="/manage">MODULES</a>
+    <a href="/status">STATUS</a>
+    <a href="/docs/modules" aria-current="page">DEVGUIDES</a>
+  </nav>
+  <div class="spacer"></div>
+  <button class="theme-toggle" data-theme-toggle type="button" aria-pressed="false" aria-label="切换主题" title="切换主题">
+    <svg class="i-sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3L17 7M7 17l-1.7 1.7"/></svg>
+    <svg class="i-moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.3A8.6 8.6 0 019.7 3.5a8.7 8.7 0 1010.8 10.8z"/></svg>
+  </button>
+</header>
+
+<div class="layout">
+  <aside class="toc">
+    <h4>目录</h4>
+    <a href="#principles">1 · 三条原则</a>
+    <a href="#naming">2 · 命名规则</a>
+    <a href="#tokens">3 · 最小令牌集</a>
+    <a href="#rules">4 · 允许与禁止</a>
+    <a href="#inject">5 · 样式注入约定</a>
+    <a href="#js">6 · JS 感知切换</a>
+    <a href="#checklist">7 · 自检清单</a>
+    <a href="#verify">8 · 验证方法</a>
+  </aside>
+
+  <article>
+    <nav class="doc-switch" aria-label="文档分册">
+      <a href="/docs/modules">模块开发</a>
+      <a href="/docs/theme" aria-current="page">主题设计</a>
+    </nav>
+
+    <div class="doc-head">
+      <div class="eyebrow"><i></i>Theme Design Guide</div>
+      <h1>颜色、圆角、动效，<br>都收敛成令牌</h1>
+      <p>宿主用一套 CSS 自定义属性（令牌）承载全部颜色、圆角与动效。主题分浅色与深色，状态写在 <code>&lt;html data-theme="light|dark"&gt;</code> 上；模块只引用令牌，切换主题时自动跟随，不需要写监听代码。</p>
+    </div>
+
+    <section id="principles">
+      <h2><span class="n">01</span>三条原则</h2>
+      <ul class="plain">
+        <li><b>只读令牌，不写色值。</b>模块内不允许出现 <code>#fff</code>、<code>#0A141F</code>、<code>rgba(...)</code> 这类硬编码颜色。</li>
+        <li><b>语义优先。</b>用“文字二级、卡片表面、分隔线”这类语义令牌，而不是“浅灰、白、深蓝”。深色下同一令牌会自动换成对应色。</li>
+        <li><b>不重定义宿主令牌。</b>模块不得在自身作用域内改写 <code>--mh-*</code>，否则会污染整页。</li>
+      </ul>
+    </section>
+
+    <section id="naming">
+      <h2><span class="n">02</span>命名规则</h2>
+      <table>
+        <thead><tr><th>范围</th><th>规则</th><th>示例</th></tr></thead>
+        <tbody>
+          <tr><td>宿主令牌</td><td><code>--mh-*</code>，模块只能引用</td><td><code>var(--mh-accent)</code></td></tr>
+          <tr><td>模块自有变量</td><td><code>--&lt;模块id&gt;-*</code></td><td><code>--notes-gap: 12px</code></td></tr>
+          <tr><td>模块样式类名</td><td><code>.mh-&lt;模块id&gt;</code> 作为根，内部类再加前缀</td><td><code>.mh-notes-list</code></td></tr>
+          <tr><td>样式节点</td><td>一个模块只注入一个 <code>&lt;style id="mh-&lt;id&gt;-style"&gt;</code></td><td><code>mh-notes-style</code></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="tokens">
+      <h2><span class="n">03</span>最小令牌集</h2>
+      <p>下面这些足够覆盖绝大多数模块界面，颜色值在 <code>/theme.css</code> 中统一维护。</p>
+      <table>
+        <thead><tr><th>令牌</th><th>用途</th></tr></thead>
+        <tbody>
+          <tr><td><code>--mh-bg</code> / <code>--mh-bg-1..3</code></td><td>页面背景与背景层级</td></tr>
+          <tr><td><code>--mh-text</code> / <code>-2</code> / <code>-3</code></td><td>正文、次级文字、弱提示文字</td></tr>
+          <tr><td><code>--mh-line</code> / <code>--mh-line-strong</code></td><td>分隔线、边框、更重的边框</td></tr>
+          <tr><td><code>--mh-surface</code> / <code>--mh-card-a</code> / <code>--mh-card-b</code></td><td>面板底色、卡片渐变两端</td></tr>
+          <tr><td><code>--mh-soft</code> / <code>--mh-hover</code></td><td>按钮静止底、悬停底</td></tr>
+          <tr><td><code>--mh-glass-border</code> / <code>--mh-inset</code></td><td>毛玻璃边框、顶部内高光</td></tr>
+          <tr><td><code>--mh-accent</code> / <code>-deep</code> / <code>-line</code> / <code>-soft</code></td><td>强调色：填充、深色文字、边框、淡底</td></tr>
+          <tr><td><code>--mh-blue</code> / <code>--mh-amber</code></td><td>第二强调色、警示色</td></tr>
+          <tr><td><code>--mh-scrim</code></td><td>遮罩层（弹层、模态）</td></tr>
+          <tr><td><code>--mh-shadow</code> / <code>--mh-shadow-hi</code></td><td>常规阴影、悬浮阴影</td></tr>
+          <tr><td><code>--mh-radius</code> / <code>--mh-radius-lg</code></td><td>圆角</td></tr>
+          <tr><td><code>--mh-ease</code></td><td>统一缓动函数</td></tr>
+          <tr><td><code>--mh-font-d</code> / <code>-b</code> / <code>-m</code></td><td>标题、正文、等宽字体</td></tr>
+          <tr><td><code>--mh-code-bg</code> / <code>--mh-code-text</code></td><td>代码块底色与文字</td></tr>
+          <tr><td><code>--mh-warn-text</code> / <code>-bg</code> / <code>-line</code></td><td>警告提示三件套</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="rules">
+      <h2><span class="n">04</span>允许与禁止</h2>
+      <table>
+        <thead><tr><th>允许</th><th>禁止</th></tr></thead>
+        <tbody>
+          <tr><td>颜色、背景、边框、阴影、圆角、字体全部引用令牌</td><td>硬编码 <code>#fff</code>、<code>#333</code>、<code>rgba(0,0,0,.5)</code></td></tr>
+          <tr><td>半透明叠加用 <code>color-mix(in srgb, var(--mh-accent) 15%, transparent)</code></td><td>假设页面一定是浅色，直接写白底黑字</td></tr>
+          <tr><td>强调色底上的文字用 <code>var(--mh-bg)</code></td><td>强调色底上用 <code>#fff</code>（深色下会糊成一片）</td></tr>
+          <tr><td>模块自有尺寸、间距、布局用固定值</td><td>覆盖 <code>:root</code> 或重定义 <code>--mh-*</code></td></tr>
+          <tr><td>需要 JS 取色时读 <code>getComputedStyle</code> 上的令牌</td><td>把色值复制进 JS 常量后再用</td></tr>
+        </tbody>
+      </table>
+      <div class="note"><b>对比度</b>：正文与背景的对比度不得低于 4.5:1。真拿不准时，直接复用宿主现有的令牌组合（<code>--mh-text</code> 配 <code>--mh-bg</code>、<code>--mh-bg</code> 配 <code>--mh-accent</code>），不要再自创。</div>
+    </section>
+
+    <section id="inject">
+      <h2><span class="n">05</span>样式注入约定</h2>
+      <pre><code>const CSS = `
+.mh-notes {
+  color: var(--mh-text);
+  background: transparent;
+}
+.mh-notes-input {
+  background: var(--mh-soft);
+  border: 1px solid var(--mh-line);
+  color: var(--mh-text);
+  border-radius: var(--mh-radius);
+}
+.mh-notes-input::placeholder { color: var(--mh-text-3); }
+.mh-notes-input:focus {
+  outline: none;
+  border-color: var(--mh-accent-line);
+  background: var(--mh-surface);
+}
+.mh-notes-btn {
+  background: var(--mh-text);
+  color: var(--mh-bg);
+  border: 0;
+  border-radius: 999px;
+  transition: background .3s, transform .35s var(--mh-ease);
+}
+.mh-notes-btn:hover { transform: translateY(-1px); }
+.mh-notes-item { border-bottom: 1px solid var(--mh-line); }
+.mh-notes-warn {
+  color: var(--mh-warn-text);
+  background: var(--mh-warn-bg);
+  border: 1px solid var(--mh-warn-line);
+}
+`;
+
+function injectStyle(id, css) {
+  const tag = 'mh-' + id + '-style';
+  if (document.getElementById(tag)) return;
+  const el = document.createElement('style');
+  el.id = tag;
+  el.textContent = css;
+  document.head.appendChild(el);
+}
+
+export function mount(el, api) {
+  injectStyle(api.id, CSS);
+  el.innerHTML = `&lt;div class="mh-notes"&gt;…&lt;/div&gt;`;
+  return () =&gt; { el.innerHTML = ''; };
+}</code></pre>
+      <p>模块面板的容器已经由宿主给出背景与圆角，模块根节点保持 <code>transparent</code> 即可，不要再套一层实色底。</p>
+    </section>
+
+    <section id="js">
+      <h2><span class="n">06</span>需要 JS 感知切换时</h2>
+      <p>纯 CSS 场景不需要做任何事：令牌变了，样式自动重算。只有当你要把颜色画进 Canvas、图表库或内联 SVG 时，才监听主题事件。</p>
+      <pre><code>const onTheme = (e) =&gt; drawChart(e.detail.theme); // 'light' | 'dark'
+window.addEventListener('mh:theme', onTheme);
+onTheme({ detail: { theme: document.documentElement.dataset.theme } });
+
+// 卸载时记得移除
+return () =&gt; window.removeEventListener('mh:theme', onTheme);</code></pre>
+      <p>也可以直接读当前值：<code>window.MicaTheme.get()</code>、<code>window.MicaTheme.toggle()</code>。偏好存在 <code>localStorage['mica.theme']</code>，首次访问跟随系统 <code>prefers-color-scheme</code>。</p>
+    </section>
+
+    <section id="checklist">
+      <h2><span class="n">07</span>自检清单</h2>
+      <ul class="plain">
+        <li>模块目录里搜索 <code>#[0-9a-fA-F]{3,8}</code> 与 <code>rgba(</code>，结果应为零（SVG 图标用 <code>currentColor</code>）。</li>
+        <li>浅色与深色各看一遍：文字不消失、边框不消失、图标看得清、阴影不过分。</li>
+        <li>强调色按钮上的文字用的是 <code>var(--mh-bg)</code>，不是 <code>#fff</code>。</li>
+        <li>没有在模块内定义或覆盖 <code>--mh-*</code>。</li>
+        <li>样式只注入一次，重复打开面板不会叠加 <code>&lt;style&gt;</code>。</li>
+        <li>卸载函数里清理了 <code>mh:theme</code> 监听与定时器。</li>
+      </ul>
+    </section>
+
+    <section id="verify">
+      <h2><span class="n">08</span>验证方法</h2>
+      <ul class="plain">
+        <li>点宿主顶栏的主题按钮切换，确认模块面板即时跟随，无需刷新。</li>
+        <li>切到深色后刷新页面，确认偏好被记住（<code>mica.theme</code>）。</li>
+        <li>清掉 <code>mica.theme</code> 后，DevTools 里把 <code>prefers-color-scheme</code> 设为 <code>dark</code>，确认首次访问即深色。</li>
+        <li>切主题时打开控制台，确认没有样式或脚本报错。</li>
+      </ul>
+    </section>
+  </article>
+</div>
+
+<script src="/docs.js"></script>
+</body>
+</html>

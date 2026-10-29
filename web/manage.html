@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>模块管理 · Mica Home</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/theme.css">
+<script src="/theme.js"></script>
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:var(--font-b);font-size:15px;line-height:1.6;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden;
+}
+::selection{background:color-mix(in srgb, var(--mh-accent) 22%, transparent)}
+h1,h2,h3{margin:0;font-family:var(--font-d);font-weight:700}
+p{margin:0}
+button{font-family:inherit}
+.mono{font-family:var(--font-m);font-variant-numeric:tabular-nums}
+
+.scene{position:fixed;inset:0;z-index:-1;overflow:hidden;
+  background:linear-gradient(180deg,var(--mh-bg-1) 0%,var(--mh-bg-2) 58%,var(--mh-bg-3) 100%);}
+.scene::before{
+  content:"";position:absolute;inset:-20%;
+  background-image:linear-gradient(var(--mh-grid) 1px,transparent 1px),
+                   linear-gradient(90deg,var(--mh-grid) 1px,transparent 1px);
+  background-size:76px 76px;
+  -webkit-mask-image:radial-gradient(ellipse at 50% 10%,#000 0%,rgba(0,0,0,.5) 45%,transparent 78%);
+  mask-image:radial-gradient(ellipse at 50% 10%,#000 0%,rgba(0,0,0,.5) 45%,transparent 78%);
+}
+.blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:.7}
+.blob.b1{width:560px;height:560px;left:-160px;top:-200px;background:var(--mh-blob-1)}
+.blob.b2{width:480px;height:480px;right:-120px;top:60px;background:var(--mh-blob-2)}
+
+.topbar{
+  position:sticky;top:14px;z-index:60;max-width:1240px;width:calc(100% - 36px);margin:14px auto 0;
+  display:flex;align-items:center;gap:26px;padding:9px 10px 9px 18px;border-radius:999px;
+  background:linear-gradient(150deg,var(--mh-glass-a),var(--mh-glass-b));
+  -webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%);
+  border:1px solid var(--mh-glass-border);
+  box-shadow:inset 0 1px 0 var(--mh-inset), var(--shadow);
+  animation:drop .8s var(--ease) both;
+}
+@keyframes drop{from{opacity:0;transform:translateY(-14px)}to{opacity:1;transform:none}}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit}
+.brand-name{display:flex;flex-direction:column;line-height:1.15}
+.brand-name b{font-family:var(--font-d);font-weight:800;font-size:14px}
+.brand-name span{font-family:var(--font-m);font-size:10px;letter-spacing:.16em;color:var(--ink-3);text-transform:uppercase}
+.spacer{flex:1}
+
+.wrap{max-width:1240px;margin:0 auto;padding:54px 22px 80px;animation:rise .8s var(--ease) .05s both}
+@keyframes rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+.head{margin-bottom:28px}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:9px;margin-bottom:14px;
+  font-family:var(--font-m);font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--teal-deep);
+}
+.eyebrow i{width:6px;height:6px;border-radius:2px;background:var(--teal);box-shadow:0 0 0 4px color-mix(in srgb, var(--mh-accent) 14%, transparent)}
+.head h1{font-size:clamp(30px,4.4vw,46px);font-weight:800;letter-spacing:-.035em;line-height:1.1}
+.head p{margin-top:10px;color:var(--ink-2);font-size:14px;max-width:56ch}
+
+.panel{
+  display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;
+  padding:18px 20px;margin-bottom:26px;border-radius:var(--r-md);
+  background:linear-gradient(152deg,var(--mh-card-a),var(--mh-card-b));
+  border:1px solid var(--mh-glass-border);
+  box-shadow:inset 0 1px 0 var(--mh-inset), var(--shadow);
+}
+.panel b{font-family:var(--font-d);font-size:14px}
+.panel p{margin-top:4px;font-size:12.5px;color:var(--ink-3)}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  padding:9px 16px;border-radius:999px;font-size:12.5px;font-weight:600;cursor:pointer;
+  border:1px solid var(--mh-accent-line);background:var(--mh-accent-soft);color:var(--teal-deep);
+  transition:background .3s,border-color .3s,transform .3s var(--ease),opacity .3s;
+}
+.btn:hover{background:var(--mh-surface);border-color:var(--mh-accent);transform:translateY(-1px)}
+.btn:disabled{opacity:.55;cursor:default;transform:none}
+.btn.primary{background:var(--ink);color:var(--mh-bg);border-color:var(--ink)}
+.btn.soft{background:var(--mh-soft);color:var(--ink-2);border-color:var(--line)}
+.btn.soft:hover{color:var(--ink);border-color:var(--mh-accent-line)}
+.btn.danger{background:var(--mh-warn-bg);color:var(--mh-warn-text);border-color:var(--mh-warn-line)}
+.btn.danger:hover{background:color-mix(in srgb, var(--mh-amber) 16%, transparent)}
+
+.list-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:14px}
+.list-head h2{font-size:20px;letter-spacing:-.02em}
+.list-head .count{font-family:var(--font-m);font-size:11px;color:var(--ink-3);margin-left:8px;letter-spacing:.06em}
+.back{font-size:12.5px;color:var(--ink-2);text-decoration:none}
+.back:hover{color:var(--ink)}
+
+.list{display:grid;gap:10px}
+.row{
+  display:flex;align-items:center;gap:14px;padding:14px 18px;border-radius:16px;
+  background:linear-gradient(152deg,var(--mh-card-a),var(--mh-card-b));
+  border:1px solid var(--mh-glass-border);
+  box-shadow:inset 0 1px 0 var(--mh-inset), var(--shadow);
+  transition:border-color .3s,transform .3s var(--ease);
+}
+.row:hover{border-color:var(--mh-accent-line);transform:translateY(-1px)}
+.icon{
+  width:42px;height:42px;flex:0 0 auto;border-radius:13px;display:grid;place-items:center;
+  background:linear-gradient(150deg,var(--ic1),var(--ic2));
+  border:1px solid var(--mh-glass-border);color:var(--ic-ink);
+  box-shadow:inset 0 1px 0 var(--mh-inset);
+}
+.tone-a{--ic1:color-mix(in srgb, var(--mh-accent) 20%, transparent);--ic2:color-mix(in srgb, var(--mh-accent) 6%, transparent);--ic-ink:var(--teal-deep)}
+.tone-b{--ic1:color-mix(in srgb, var(--mh-blue) 17%, transparent);--ic2:color-mix(in srgb, var(--mh-blue) 5%, transparent);--ic-ink:var(--mh-blue)}
+.tone-c{--ic1:color-mix(in srgb, var(--mh-amber) 16%, transparent);--ic2:color-mix(in srgb, var(--mh-amber) 5%, transparent);--ic-ink:var(--mh-amber)}
+.tone-d{--ic1:color-mix(in srgb, var(--ink-2) 14%, transparent);--ic2:color-mix(in srgb, var(--ink-2) 4%, transparent);--ic-ink:var(--ink-2)}
+.info{flex:1;min-width:0}
+.info b{display:block;font-family:var(--font-d);font-size:14.5px;letter-spacing:-.01em}
+.info span{display:block;margin-top:3px;font-size:11.5px;color:var(--ink-3);
+  font-family:var(--font-m);letter-spacing:.03em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.state{
+  display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;
+  padding:5px 11px;border-radius:999px;font-family:var(--font-m);
+  font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+}
+.state.on{color:var(--teal-deep);border:1px solid var(--mh-accent-line);background:var(--mh-accent-soft)}
+.state.off{color:var(--ink-3);border:1px solid var(--line);background:var(--mh-soft)}
+.state i{width:5px;height:5px;border-radius:50%;background:currentColor}
+.acts{display:flex;gap:8px;flex:0 0 auto}
+.acts .btn{padding:7px 13px}
+
+.empty{
+  padding:44px 24px;text-align:center;border-radius:16px;
+  border:1px dashed var(--mh-line-strong);background:var(--mh-soft);
+  color:var(--ink-3);font-size:13px;
+}
+.empty b{display:block;margin-bottom:6px;font-family:var(--font-d);font-size:16px;color:var(--ink)}
+
+.toast{
+  position:fixed;left:50%;bottom:26px;z-index:80;
+  display:flex;align-items:center;gap:10px;padding:11px 18px;border-radius:999px;
+  font-size:13px;color:var(--ink);border:1px solid var(--mh-glass-border);
+  background:linear-gradient(150deg,var(--mh-glass-solid),var(--mh-glass-a));
+  -webkit-backdrop-filter:blur(26px) saturate(170%);backdrop-filter:blur(26px) saturate(170%);
+  box-shadow:var(--shadow-hi);
+  opacity:0;pointer-events:none;transform:translate(-50%,80px);
+  transition:transform .6s var(--ease),opacity .4s;
+}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.toast .tick{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:var(--teal);color:var(--mh-bg);flex:0 0 auto}
+
+@media (max-width:900px){
+  .topbar-nav{display:none}
+}
+@media (max-width:640px){
+  .topbar{gap:12px;padding:8px 8px 8px 14px}
+  .wrap{padding:34px 16px 60px}
+  .row{flex-wrap:wrap;gap:10px}
+  .info{flex:1 1 60%}
+  .state{order:3}
+  .acts{width:100%;justify-content:flex-end}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.06s!important}
+}
+</style>
+</head>
+<body>
+<div class="scene" aria-hidden="true"><div class="blob b1"></div><div class="blob b2"></div></div>
+
+<header class="topbar">
+  <a class="brand" href="/">
+    <svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true">
+      <rect x="2.5" y="2.5" width="11" height="11" rx="3.5" fill="currentColor"/>
+      <rect x="16.5" y="2.5" width="11" height="11" rx="3.5" fill="var(--mh-accent)"/>
+      <rect x="2.5" y="16.5" width="11" height="11" rx="3.5" stroke="currentColor" stroke-width="1.4"/>
+      <rect x="16.5" y="16.5" width="11" height="11" rx="3.5" fill="currentColor" opacity=".22"/>
+    </svg>
+    <span class="brand-name"><b>Mica Home</b><span>Modular Shell</span></span>
+  </a>
+  <nav class="topbar-nav" aria-label="主导航">
+    <a href="/">DASHBOARD</a>
+    <a href="/manage" aria-current="page">MODULES</a>
+    <a href="/status">STATUS</a>
+    <a href="/docs/modules">DEVGUIDES</a>
+  </nav>
+  <div class="spacer"></div>
+  <button class="theme-toggle" data-theme-toggle type="button" aria-pressed="false" aria-label="切换主题" title="切换主题">
+    <svg class="i-sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3L17 7M7 17l-1.7 1.7"/></svg>
+    <svg class="i-moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.3A8.6 8.6 0 019.7 3.5a8.7 8.7 0 1010.8 10.8z"/></svg>
+  </button>
+</header>
+
+<main class="wrap">
+  <div class="head">
+    <div class="eyebrow"><i></i>Module Control</div>
+    <h1>模块管理</h1>
+    <p>上传安装、启用或停用模块。停用只停止展示与加载，模块文件仍保留；卸载会删除 <span class="mono">modules/&lt;id&gt;</span> 目录。</p>
+  </div>
+
+  <section class="panel">
+    <div>
+      <b>安装模块包</b>
+      <p>上传 zip：包根直接包含 manifest.json 与 frontend/，上限 20MB。</p>
+    </div>
+    <button class="btn" id="upload-btn" type="button">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4"/><path d="M7.5 8.5L12 4l4.5 4.5"/><path d="M4 16v3.5A1.5 1.5 0 005.5 21h13a1.5 1.5 0 001.5-1.5V16"/></svg>
+      <span id="upload-label">选择 zip 安装</span>
+    </button>
+    <input id="upload-file" type="file" accept=".zip,application/zip" hidden>
+  </section>
+
+  <div class="list-head">
+    <h2>已安装模块<span class="count" id="count">—</span></h2>
+    <a class="back" href="/">返回 DASHBOARD →</a>
+  </div>
+  <div class="list" id="list"></div>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite">
+  <span class="tick"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M4 12.5l5.5 5.5L20 6.5"/></svg></span>
+  <span id="toast-text">已完成</span>
+</div>
+
+<script>
+const ICONS = {
+  shield:'<path d="M12 3l7.5 3v5.2c0 4.6-3.1 7.9-7.5 9.3-4.4-1.4-7.5-4.7-7.5-9.3V6L12 3z"/><path d="M9 12.2l2.2 2.2L15.4 10"/>',
+  flow:'<rect x="3" y="3.5" width="6" height="5" rx="1.6"/><rect x="15" y="15.5" width="6" height="5" rx="1.6"/><rect x="3" y="15.5" width="6" height="5" rx="1.6"/><path d="M9 6h4.5a2 2 0 012 2v5.5"/><path d="M9 18h6"/>',
+  radar:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.6"/><path d="M12 3.5v3M12 17.5v3M3.5 12h3M17.5 12h3"/><path d="M12 12l5-3.4"/>',
+  chart:'<path d="M4 20V9M10 20V5M16 20v-7M22 20H2"/>',
+  box:'<path d="M3.5 7.8L12 3.5l8.5 4.3v8.4L12 20.5l-8.5-4.3V7.8z"/><path d="M3.5 7.8L12 12l8.5-4.2M12 12v8.5"/>',
+  spark:'<path d="M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9L12 3.5z"/><path d="M18.5 16.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9.9-2.1z"/>',
+  scan:'<path d="M3.5 8V5.5A2 2 0 015.5 3.5H8M16 3.5h2.5a2 2 0 012 2V8M20.5 16v2.5a2 2 0 01-2 2H16M8 20.5H5.5a2 2 0 01-2-2V16"/><path d="M7 12h10"/>',
+  clock:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3.2 2"/>',
+  bus:'<rect x="3" y="4.5" width="18" height="12" rx="2.4"/><path d="M7.5 20.5l2.2-4M16.5 20.5l-2.2-4"/><path d="M7 9.5h4M7 13h7"/>'
+};
+
+const listEl = document.getElementById('list');
+const countEl = document.getElementById('count');
+const toast = document.getElementById('toast');
+const toastText = document.getElementById('toast-text');
+const uploadBtn = document.getElementById('upload-btn');
+const uploadLabel = document.getElementById('upload-label');
+const uploadFile = document.getElementById('upload-file');
+
+let MODULES = [];
+
+function iconSVG(name, size) {
+  const path = ICONS[name] || ICONS.box;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg>`;
+}
+
+function showToast(text) {
+  toastText.textContent = text;
+  toast.classList.add('show');
+  clearTimeout(showToast.t);
+  showToast.t = setTimeout(() => toast.classList.remove('show'), 2600);
+}
+
+async function jsonFetch(url, init) {
+  const res = await fetch(url, init);
+  if (!res.ok) {
+    const body = await res.text();
+    let msg = body;
+    try { msg = JSON.parse(body).error || body; } catch {}
+    throw new Error(msg || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+function render() {
+  countEl.textContent = `${MODULES.length} 个`;
+  if (!MODULES.length) {
+    listEl.innerHTML = '<div class="empty"><b>还没有模块</b>上传一个 zip 模块包开始。</div>';
+    return;
+  }
+  listEl.innerHTML = MODULES.map(m => `
+    <article class="row" data-id="${m.id}">
+      <div class="icon ${m.tone || 'tone-a'}">${iconSVG(m.icon, 20)}</div>
+      <div class="info">
+        <b>${m.name}</b>
+        <span>v${m.version} · ${m.id} · ${m.category || '未分类'}</span>
+      </div>
+      <span class="state ${m.enabled ? 'on' : 'off'}"><i></i>${m.enabled ? 'ENABLED' : 'DISABLED'}</span>
+      <div class="acts">
+        <button class="btn soft" type="button" data-toggle="${m.id}">${m.enabled ? '停用' : '启用'}</button>
+        <button class="btn danger" type="button" data-remove="${m.id}">卸载</button>
+      </div>
+    </article>`).join('');
+}
+
+async function load() {
+  try {
+    MODULES = await jsonFetch('/api/modules');
+    render();
+  } catch (err) {
+    listEl.innerHTML = `<div class="empty"><b>无法连接宿主</b>${err.message}</div>`;
+    countEl.textContent = '—';
+  }
+}
+
+async function toggle(id) {
+  const m = MODULES.find(x => x.id === id);
+  if (!m) return;
+  try {
+    await jsonFetch(`/api/modules/${id}/${m.enabled ? 'disable' : 'enable'}`, { method: 'POST' });
+    showToast(m.enabled ? `已停用 ${m.name}` : `已启用 ${m.name}`);
+    await load();
+  } catch (err) {
+    showToast(`操作失败：${err.message}`);
+  }
+}
+
+async function remove(id) {
+  const m = MODULES.find(x => x.id === id);
+  if (!m) return;
+  if (!confirm(`确定卸载「${m.name}」？\n将删除 modules/${m.id} 目录，无法恢复。`)) return;
+  try {
+    await jsonFetch(`/api/modules/${id}`, { method: 'DELETE' });
+    showToast(`已卸载 ${m.name}`);
+    await load();
+  } catch (err) {
+    showToast(`卸载失败：${err.message}`);
+  }
+}
+
+async function uploadModule(file) {
+  if (!/\.zip$/i.test(file.name)) {
+    showToast('请选择 .zip 模块包');
+    return;
+  }
+  const label = uploadLabel.textContent;
+  uploadBtn.disabled = true;
+  uploadLabel.textContent = '正在安装…';
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch('/api/modules/install', { method: 'POST', body: fd });
+    const text = await res.text();
+    let data = null;
+    try { data = JSON.parse(text); } catch {}
+    if (!res.ok) throw new Error((data && data.error) || text || `HTTP ${res.status}`);
+    showToast(`已安装并启用 ${data.name || data.id || '模块'}`);
+    await load();
+  } catch (err) {
+    showToast(`安装失败：${err.message}`);
+  } finally {
+    uploadBtn.disabled = false;
+    uploadLabel.textContent = label;
+  }
+}
+
+listEl.addEventListener('click', e => {
+  const toggleBtn = e.target.closest('[data-toggle]');
+  if (toggleBtn) { toggle(toggleBtn.dataset.toggle); return; }
+  const removeBtn = e.target.closest('[data-remove]');
+  if (removeBtn) remove(removeBtn.dataset.remove);
+});
+
+uploadBtn.addEventListener('click', () => uploadFile.click());
+uploadFile.addEventListener('change', () => {
+  const file = uploadFile.files && uploadFile.files[0];
+  uploadFile.value = '';
+  if (file) uploadModule(file);
+});
+
+load();
+</script>
+</body>
+</html>

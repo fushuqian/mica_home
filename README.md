@@ -12,6 +12,8 @@ docker compose up -d --build
 
 浏览器打开 <http://localhost:8080>。模块目录挂载自仓库的 `./modules`，新增模块后刷新页面即可看到。
 
+宿主以 **Docker Linux 容器**运行，模块前端在用户浏览器中执行；容器内不提供本机进程、文件与命名管道能力。
+
 停止：`docker compose down`（运行数据保存在 `mica-data` 卷中）。
 
 ## 目录结构
@@ -26,9 +28,17 @@ docker compose up -d --build
 │   ├── hello/              # 示例：最小模块
 │   └── notes/              # 示例：带本地数据的模块
 ├── web/index.html          # 宿主外壳页（编译进二进制）
-├── web/docs.html           # 开发文档页 /docs
+├── web/manage.html         # 模块管理页 /manage（上传、启用、停用、卸载）
+├── web/status.html         # 宿主机状态页 /status
+├── web/docs-modules.html   # 模块开发指南 /docs/modules
+├── web/docs-theme.html     # 主题设计指南 /docs/theme
+├── web/docs.css            # 两册文档共用样式
+├── web/docs.js             # 目录滚动高亮
 ├── web/theme.css           # 主题令牌（明/暗两套），宿主与模块共用
 ├── web/theme.js            # 主题切换与持久化
+├── web/fonts/              # HarmonyOS Sans SC（Regular / Bold woff2）
+├── docs/MICA-UI.md         # 面向其他系统/Agent 的单文件 UI 设计规范（令牌 + 组件 CSS）
+├── docs/SIDECAR-CONTRACT.md # 模块 Sidecar 契约（宿主 ↔ 模块方）
 ├── design/                 # 早期 UI 原型存档
 ├── Dockerfile
 └── docker-compose.yml
@@ -58,7 +68,7 @@ modules/<id>/
   "icon": "spark",
   "tone": "tone-a",
   "permissions": [],
-  "frontend": { "entry": "index.js" }
+  "frontend": { "entry": "index.js", "card": "card.js" }
 }
 ```
 
@@ -67,6 +77,7 @@ modules/<id>/
 - `icon` / `tone`：外观提示，可选。
 - `permissions`：模块声明的能力，P0 仅展示，不做运行时拦截。
 - `frontend.entry`：相对 `frontend/` 的入口文件。
+- `frontend.card`：可选，首页卡片入口，导出 `renderCard(el, api)`；缺省用 manifest 默认卡片。
 
 前端入口是**框架无关的 ES 模块**：
 
@@ -92,13 +103,18 @@ export function mount(el, api) {
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | GET | `/api/health` | 宿主状态：版本、Go 运行时、模块数、运行时长、扫描告警 |
-| GET | `/api/modules` | 全部模块清单（含 `installed` 状态） |
-| POST | `/api/modules/{id}/install` | 安装（标记启用） |
-| POST | `/api/modules/{id}/uninstall` | 卸载 |
+| GET | `/api/modules` | 全部模块清单（`installed` / `enabled` / `running`） |
+| POST | `/api/modules/install` | 上传 zip 模块包（multipart 字段 `file`），解压并启用；上限 160MB |
+| POST | `/api/modules/{id}/enable` | 启用模块；有 sidecar 时同时启动 |
+| POST | `/api/modules/{id}/disable` | 停用模块；同时停止 sidecar |
+| DELETE | `/api/modules/{id}` | 卸载模块（删除目录与 sidecar） |
 | GET | `/api/m/{id}/info` | 单个模块的 manifest |
-| GET | `/api/m/{id}/ui/{path}` | 模块前端静态资源（仅已安装模块可访问） |
+| GET | `/api/m/{id}/ui/{path}` | 模块前端静态资源（仅已启用模块可访问） |
+| GET | `/api/m/{id}/__status` | sidecar 进程状态 |
+| GET | `/api/m/{id}/__logs` | sidecar 日志尾部 |
+| ANY | `/api/m/{id}/{path}` | 反代到模块 sidecar |
 
-安装状态持久化在 `MICA_DATA_DIR/state.json`。
+模块的启用状态持久化在 `MICA_DATA_DIR/state.json`。
 
 ## 主题
 
@@ -113,7 +129,7 @@ export function mount(el, api) {
 
 需要把颜色画进 Canvas / 图表时，监听 `window` 上的 `mh:theme` 事件；也可用 `window.MicaTheme.get() / set() / toggle()`。
 
-完整规范见开发文档 `/docs` 的「8 · 主题开发规范」。
+完整规范见开发文档 `/docs/theme` 的《主题设计指南》。若要把这套设计语言带到其他系统，直接使用单文件规范 [docs/MICA-UI.md](docs/MICA-UI.md)（内含完整令牌表、组件 CSS、规则与自检清单）。
 
 ## 配置
 

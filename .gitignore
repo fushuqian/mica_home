@@ -9,3 +9,9 @@ toberemoved/
 # 编译产物
 *.exe
 mica-home
+
+# 本地安装的运行时模块（示例模块仍按目录跟踪）
+/modules/mihomo/
+
+# 本地规划与临时文档
+/.trae/
