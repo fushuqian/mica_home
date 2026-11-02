@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-11-02
+
+### 修复 · CI 格式检查
+- `internal/host/host.go` 存在 gofmt 未对齐的空行，导致 GitHub Actions 首个 workflow 的「格式检查」步骤失败；已格式化并在本地用 Go 容器通过 `gofmt`、`go vet`、`go test ./...` 验证，CI 转为通过。
+- 本地无 Go 环境时，统一用 `golang:1.24-alpine` 容器挂载源码执行格式检查与测试。
+
 ## 2026-10-30
 
 ### 安全 · 宿主安全基线（R1）

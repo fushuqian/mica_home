@@ -1,6 +1,9 @@
 # MEMORIES
 
 ## 经验
+- 本地没有 Go 时，用 `docker run --rm -v "$PWD:/src" -w /src golang:1.24-alpine gofmt -l .` 就能复现 CI 的格式检查，比只靠 CI 失败日志快得多。
+- Dockerfile 运行层从 alpine 换成 `debian:bookworm-slim`（sidecar 需要 glibc）后，Docker Hub 拉取会超时；改用镜像加速前缀 `docker.1ms.run/library/debian:bookworm-slim` 再 tag 成本地名即可，不必改 Dockerfile。
+- 本机 git 凭据走 `gh auth git-credential`，gh token（gho_）过期会让 push 报 `Invalid username or token`；SSH 无 key 时只能让用户重新 `gh auth login`，别反复重试推送。
 - Go 的 `plugin` 包只支持 Linux，且 .so 必须与宿主 Go 版本、依赖完全一致，无法热卸载重载 → 模块化后端选 WASM（wazero），纯 Go、无 CGO、跨平台、可热替换。
 - 模块生态的关键不是加载方式，而是 `manifest.json` 契约（扩展点 + 权限声明）。这份契约一旦定型，后续改动等于重做。
 - 大量使用 backdrop-filter 时，动画只改 transform / opacity，避免触发布局重排，否则滚动会掉帧。
