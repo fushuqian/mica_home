@@ -6,12 +6,19 @@ services:
     image: mica-home:0.1.0
     container_name: mica-home
     ports:
-      - "8080:8080"
+      # 默认只绑回环：本机浏览器可访问，局域网不可见。
+      # 需要局域网访问时改为 "0.0.0.0:8080:8080"，并务必设置 MICA_ADMIN_PASSWORD。
+      - "127.0.0.1:8080:8080"
     environment:
       TZ: Asia/Shanghai
       MICA_ADDR: ":8080"
       MICA_MODULES_DIR: /app/modules
       MICA_DATA_DIR: /data
+      # 管理员口令。留空则首次启动自动生成，保存在 /data/auth/password（容器内查看）：
+      #   docker compose exec mica-home cat /data/auth/password
+      # MICA_ADMIN_PASSWORD: ""
+      # 通过 HTTPS 反代访问时设为 1，让会话 Cookie 带 Secure
+      # MICA_COOKIE_SECURE: "1"
     volumes:
       # 模块目录挂载出来：往里面丢一个模块目录，刷新页面即可看到
       - ./modules:/app/modules

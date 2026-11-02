@@ -2,6 +2,26 @@
 
 ## 2026-10-30
 
+### 安全 · 宿主安全基线（R1）
+- 新增单用户口令认证：`POST /api/auth/login` 换 HttpOnly 会话 Cookie（`mica_session`，7 天，`SameSite=Lax`），`/api/auth/logout`、`/api/auth/session`；未登录 API 返回 401，页面 302 `/login`。
+- 口令来源：`MICA_ADMIN_PASSWORD`；未设置时自动生成并写入 `MICA_DATA_DIR/auth/password`（0600）。会话只存内存，重启需重新登录。
+- 同 IP 1 分钟内失败 5 次返回 429；写请求校验 `Origin` 与 `Host` 同源，不符返回 403。
+- 公开路径仅 `/login`、`/api/auth/*`、`/api/health`、`/docs*` 与公共静态资源。
+- 新增登录页 `web/login.html`；`manage` 顶栏增加退出按钮；三个页面 401 时自动跳转登录。
+- `docker-compose.yml` 与 README 默认只绑 `127.0.0.1:8080:8080`，开放局域网需显式改绑并设口令。
+- 新增 `MICA_COOKIE_SECURE`，HTTPS 反代后启用 Cookie `Secure`。
+
+### 修复 · WebSocket 与流式响应被日志中间件吞掉
+- `statusWriter` 增加 `Unwrap() http.ResponseWriter`，`http.NewResponseController` 可继续找到底层 Hijacker/Flusher；此前 `logRequests` 包裹导致 WebSocket 升级返回 502、Flush 失效。
+- 新增 `TestStatusWriterKeepsHijack`，走完整 `logRequests` 链路断言 101 升级。
+
+### 修复 · state.json 并发写入互相覆盖
+- `Registry` 增加 `stateMu`，`saveState` 全程串行（临时文件名固定不再有竞争）；新增 `TestSaveStateConcurrent`（`-race` 下 20 并发）。
+
+### 变更 · 工程与文案
+- 新增 `.github/workflows/ci.yml`（`go vet`、`go test -race`、`gofmt` 检查）与 `.dockerignore`。
+- 上传体积提示由「160 MB」修正为「256 MB」；README、`ROADMAP.md`、`QUEST.md` 同步；新增 `ROADMAP.md` 六阶段路线图。
+
 ### 新增 · 面向 AI Agent 的单文件开发说明
 - 新增 `/docs/agent.md`（`text/markdown`，同时支持 `/docs/agent`），覆盖包结构、manifest 全字段、前端/sidecar 契约、宿主 API、限额、验收清单与常见错误。
 - 开发文档页顶部加入 AI AGENT 版入口；README 与目录结构同步。

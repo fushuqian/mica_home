@@ -1,0 +1,13 @@
+.git
+.gitignore
+.github
+.trae
+.screenshots
+data
+media
+downloads
+toberemoved
+modules/mihomo
+modules/amane
+*.exe
+*.log

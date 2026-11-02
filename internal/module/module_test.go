@@ -2,10 +2,12 @@ package module
 
 import (
 	"archive/zip"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 )
 
@@ -118,6 +120,47 @@ func TestRemoveCleansLogsAndEmptyData(t *testing.T) {
 	}
 	if _, err := os.Stat(r.ModuleDataDir("demo")); !os.IsNotExist(err) {
 		t.Fatal("空用户数据目录应删除")
+	}
+}
+
+func TestSaveStateConcurrent(t *testing.T) {
+	r, root := newTestRegistry(t)
+	zip1 := filepath.Join(root, "v1.zip")
+	makeTestZip(t, zip1, "demo", "1.0.0")
+	if _, _, err := r.InstallArchiveFile(zip1); err != nil {
+		t.Fatal(err)
+	}
+
+	var wg sync.WaitGroup
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			if i%2 == 0 {
+				_ = r.Enable("demo")
+			} else {
+				_ = r.Disable("demo")
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	data, err := os.ReadFile(r.statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var s state
+	if err := json.Unmarshal(data, &s); err != nil {
+		t.Fatalf("state.json 已损坏: %v", err)
+	}
+	fromFile := false
+	for _, id := range s.Enabled {
+		if id == "demo" {
+			fromFile = true
+		}
+	}
+	if r.IsEnabled("demo") != fromFile {
+		t.Fatalf("内存状态与文件不一致: memory=%v file=%v", r.IsEnabled("demo"), fromFile)
 	}
 }
 

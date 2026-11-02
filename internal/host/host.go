@@ -25,6 +25,7 @@ type Options struct {
 	Assets   fs.FS
 	Version  string
 	Sidecars *sidecar.Manager
+	Auth     *Auth
 }
 
 // Server 是宿主 HTTP 服务。
@@ -34,16 +35,33 @@ type Server struct {
 	version  string
 	started  time.Time
 	sidecars *sidecar.Manager
+	auth     *Auth
 }
 
 // New 创建宿主服务。
 func New(o Options) *Server {
-	return &Server{reg: o.Registry, assets: o.Assets, version: o.Version, started: time.Now(), sidecars: o.Sidecars}
+	return &Server{
+		reg:      o.Registry,
+		assets:   o.Assets,
+		version:  o.Version,
+		started:  time.Now(),
+		sidecars: o.Sidecars,
+		auth:     o.Auth,
+	}
 }
 
-// Handler 返回路由表。
+// Handler 返回路由表。认证中间件在路由外层，日志在最外层。
 func (s *Server) Handler() http.Handler {
+	if s.auth == nil {
+		return logRequests(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			writeError(w, http.StatusServiceUnavailable, "认证未配置")
+		}))
+	}
 	mux := http.NewServeMux()
+	mux.HandleFunc("POST /api/auth/login", s.auth.Login)
+	mux.HandleFunc("POST /api/auth/logout", s.auth.Logout)
+	mux.HandleFunc("GET /api/auth/session", s.auth.Session)
+	mux.HandleFunc("GET /login", s.htmlPage("login.html"))
 	mux.HandleFunc("GET /api/health", s.health)
 	mux.HandleFunc("GET /api/system", s.systemInfo)
 	mux.HandleFunc("GET /api/modules", s.listModules)
@@ -63,7 +81,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /status", s.htmlPage("status.html"))
 	mux.HandleFunc("/api/m/", s.moduleRoute)
 	mux.Handle("/", http.FileServer(http.FS(s.assets)))
-	return logRequests(mux)
+	return logRequests(s.auth.Middleware(mux))
 }
 
 // moduleRoute 统一处理 /api/m/<id>/*：info、ui、__status、__logs 与 sidecar 反代。
@@ -353,7 +371,7 @@ func (s *Server) installArchive(w http.ResponseWriter, r *http.Request) {
 		if n > maxUploadBytes {
 			tmp.Close()
 			os.Remove(tmp.Name())
-			writeError(w, http.StatusBadRequest, "模块包超过 160 MB")
+			writeError(w, http.StatusBadRequest, "模块包超过 256 MB")
 			return
 		}
 		break
@@ -550,6 +568,12 @@ type statusWriter struct {
 func (w *statusWriter) WriteHeader(code int) {
 	w.status = code
 	w.ResponseWriter.WriteHeader(code)
+}
+
+// Unwrap 让 http.NewResponseController 能取到底层 Hijacker / Flusher，
+// 否则 WebSocket 升级与流式响应会被这层日志包装挡掉。
+func (w *statusWriter) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
 }
 
 func logRequests(next http.Handler) http.Handler {

@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -35,6 +36,12 @@ func main() {
 		log.Fatalf("加载内置前端失败: %v", err)
 	}
 
+	auth, authSource, err := host.NewAuth(*dataDir, os.Getenv("MICA_ADMIN_PASSWORD"), envBool("MICA_COOKIE_SECURE"))
+	if err != nil {
+		log.Fatalf("初始化认证失败: %v", err)
+	}
+	log.Printf("管理员口令来源: %s", authSource)
+
 	reg := module.NewRegistry(*modulesDir, filepath.Join(*dataDir, "state.json"))
 	for _, warning := range reg.Scan() {
 		log.Printf("模块告警: %s", warning)
@@ -45,6 +52,7 @@ func main() {
 		Assets:   assets,
 		Version:  version,
 		Sidecars: sidecar.New(*dataDir),
+		Auth:     auth,
 	})
 	srv.StartSidecars()
 
@@ -71,4 +79,12 @@ func env(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func envBool(key string) bool {
+	switch strings.ToLower(os.Getenv(key)) {
+	case "1", "true", "yes":
+		return true
+	}
+	return false
 }

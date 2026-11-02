@@ -29,3 +29,8 @@
 - `httputil.ReverseProxy` 能透传 `Upgrade`，是支持 WebSocket 的关键；token 注入放在 `Director`，同时删掉客户端自带的 `X-Forwarded-For`，路径前缀在 Director 里剥离最直观。
 - 慢启动 sidecar（Python / JVM）不能靠硬编码 5 秒健康检查：把超时做成 manifest 的 `healthTimeoutSec`，超时只标 degraded，进程继续跑。
 - 文档要维护三份并保持同步：`web/agent-guide.md`（AI 单文件）、`web/docs-modules.html`（人读）、`docs/SIDECAR-CONTRACT.md`（模块方契约）。每次改限额、manifest 字段、路由或生命周期后，三处一起核对，发版前用 `/docs/agent.md` 抽查。
+- 给 ResponseWriter 套日志包装时，必须实现 Unwrap() http.ResponseWriter；否则 http.NewResponseController 拿不到底层 Hijacker，WebSocket 会在中间件层静默变成 502，单测若只测 proxy 而不走完整 Handler 就完全发现不了。
+- CSRF 不能只靠 SameSite：会话 Cookie 用 Lax 挡表单式跨站写，同时在服务端校验写请求 Origin 与 Host 同源（Origin 为空视为脚本调用放行），两层都能在 auth_test 里直接覆盖。
+- Q-030 遗留验证（回家做）：docker compose up -d --build → 未登录访问 /api/modules 应 401、页面应 302 /login；docker compose exec mica-home cat /data/auth/password 取口令；登录后检查 Set-Cookie 含 HttpOnly/SameSite=Lax，再验安装/启停/__status/__logs/反代；最后补跑 go test -race。
+- 本机验证顺序：先启动 Docker Desktop（引擎默认不随系统启动），用容器内的 golang 镜像跑 build/test；只有 Docker 完全不可用时才考虑下载便携 Go。别为了绕开环境问题引入新的验证通道。
+- Windows 下 go test -race 需要 cgo（gcc），默认 CGO_ENABLED=0 会直接报错；无 gcc 时跑普通 go test，竞态检测交给 CI 的 ubuntu runner。%TEMP%\go124 是上次下载的便携 Go，可复用，不必重复下载。

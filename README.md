@@ -12,15 +12,15 @@
 
 ```bash
 docker run -d --name mica-home --restart unless-stopped \
-  -p 8080:8080 \
+  -p 127.0.0.1:8080:8080 \
   -v mica-data:/data \
   -v mica-modules:/app/modules \
   kenzong/mica-home:0.1.0
 ```
 
 - `mica-data` 保存启用状态、sidecar、日志与模块用户数据；`mica-modules` 保存已安装模块。两个命名卷首次创建时会从镜像复制示例模块 `hello` / `notes`。
-- 浏览器打开 <http://localhost:8080>，入口为 `DASHBOARD`；模块管理在 `/manage`，宿主状态在 `/status`。
-- 验证：`curl http://localhost:8080/api/health` 返回 `{"status":"ok",...}`。
+- 浏览器打开 <http://localhost:8080> 会先跳转 `/login`；首次口令见「登录与安全」一节。
+- 验证：`curl http://localhost:8080/api/health` 返回 `{"status":"ok",...}`（该接口无需登录）。
 - 升级：`docker rm -f mica-home` 后用新 tag 重新执行上面的 `docker run`，两个卷保留。
 - 只映射 8080；sidecar 的代理端口只在容器内回环，不对外发布。
 - **目录挂载时先给权限**：容器以 UID 10001 运行，`./data`、`./modules` 属主不是 10001 时安装会失败（日志 `POST /api/modules/install 500`）。先执行 `sudo chown -R 10001:10001 data modules`；`/api/system` 会返回 `data.writable`，管理页不可写时会直接禁用上传并提示。
@@ -34,7 +34,7 @@ services:
     container_name: mica-home
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     environment:
       TZ: Asia/Shanghai
     volumes:
@@ -153,9 +153,14 @@ export function mount(el, api) {
 
 ## 宿主 API
 
+除 `GET /api/health` 与 `/docs/*` 外，所有接口都需要登录会话；未登录的 `/api/*` 请求返回 `401`，页面请求跳转 `/login`。
+
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/api/health` | 宿主状态：版本、Go 运行时、模块数、运行时长、扫描告警 |
+| POST | `/api/auth/login` | 口令换会话 Cookie（JSON `{"password":"..."}`）；同 IP 1 分钟内失败 5 次后返回 429 |
+| POST | `/api/auth/logout` | 注销当前会话 |
+| GET | `/api/auth/session` | 当前登录状态 |
+| GET | `/api/health` | 宿主状态：版本、Go 运行时、模块数、运行时长、扫描告警（公开） |
 | GET | `/api/system` | 安装限额（上传/解压/文件数）与数据盘剩余容量 |
 | GET | `/api/modules` | 全部模块清单（含 `sidecarState` / `sidecarPid` / `sidecarError` / `needConfirm`） |
 | POST | `/api/modules/install` | 上传 zip 模块包（multipart 字段 `file`），流式落盘并安装；上限 256MB |
@@ -188,6 +193,26 @@ export function mount(el, api) {
 
 完整规范见开发文档 `/docs/theme` 的《主题设计指南》。若要把这套设计语言带到其他系统，直接使用单文件规范 [docs/MICA-UI.md](docs/MICA-UI.md)（内含完整令牌表、组件 CSS、规则与自检清单）。
 
+## 登录与安全
+
+首次启动若未设置 `MICA_ADMIN_PASSWORD`，宿主会生成随机口令并写入 `MICA_DATA_DIR/auth/password`（权限 0600）。容器内查看：
+
+```bash
+docker compose exec mica-home cat /data/auth/password
+```
+
+- 浏览器访问任何页面都会跳转 `/login`；口令换取 HttpOnly 会话 Cookie（`mica_session`，7 天，`SameSite=Lax`）。会话只存内存，**容器重启后需重新登录**。
+- 除 `GET /api/health` 与 `/docs/*` 外，页面与 API 全部需要登录。
+- 写请求带 `Origin` 时校验同源，跨站请求返回 403（配合 `SameSite=Lax` 防 CSRF）。
+- 默认端口只绑 `127.0.0.1`。开放给局域网需改 `-p 0.0.0.0:8080:8080`，**并且必须先设置 `MICA_ADMIN_PASSWORD`**；建议放在 HTTPS 反代之后，此时设 `MICA_COOKIE_SECURE=1`。
+- 脚本调用先登录再带 Cookie：
+
+```bash
+curl -c cookie.txt -H 'Content-Type: application/json' \
+  -d '{"password":"你的口令"}' http://127.0.0.1:8080/api/auth/login
+curl -b cookie.txt http://127.0.0.1:8080/api/modules
+```
+
 ## 配置
 
 | 环境变量 | 默认值 | 说明 |
@@ -195,11 +220,9 @@ export function mount(el, api) {
 | `MICA_ADDR` | `:8080` | 监听地址 |
 | `MICA_MODULES_DIR` | `modules` | 模块目录 |
 | `MICA_DATA_DIR` | `data` | 运行数据目录 |
+| `MICA_ADMIN_PASSWORD` | 空 | 管理员口令；为空时自动生成并写入 `MICA_DATA_DIR/auth/password` |
+| `MICA_COOKIE_SECURE` | 空 | 设为 `1` 时会话 Cookie 带 `Secure`（HTTPS 反代后启用） |
 
 ## 路线图
 
-- **P0（当前）**：宿主内核、模块扫描、前端挂载、Docker 分发。
-- **P1**：OCI 模块仓库索引与在线安装、签名校验、PostgreSQL（schema-per-module）。
-- **P2**：WASM 后端运行时（wazero）、依赖解析、`/__host/*` 双 token 管理通道。
-
-模块后端契约已在 manifest 中预留（`backend: { type: "wasm", entry: "plugin.wasm" }`），P0 不执行。
+完整阶段与验收口径见 [ROADMAP.md](ROADMAP.md)。当前 R1 已完成宿主认证、CSRF 校验、默认回环绑定、WebSocket 反代修复与状态文件并发加固。

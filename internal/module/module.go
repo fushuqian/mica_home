@@ -112,6 +112,7 @@ type state struct {
 type Registry struct {
 	mu        sync.RWMutex
 	installMu sync.Mutex
+	stateMu   sync.Mutex
 	dir       string
 	statePath string
 	modules   map[string]*Module
@@ -709,6 +710,10 @@ func (r *Registry) loadState() {
 }
 
 func (r *Registry) saveState() error {
+	// 写状态必须串行：临时文件名固定，并发写会互相覆盖。
+	r.stateMu.Lock()
+	defer r.stateMu.Unlock()
+
 	r.mu.RLock()
 	s := state{Enabled: make([]string, 0, len(r.enabled))}
 	for id := range r.enabled {

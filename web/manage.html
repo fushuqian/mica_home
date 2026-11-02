@@ -213,6 +213,7 @@ dialog.confirm::backdrop{background:color-mix(in srgb,var(--mh-bg) 55%,transpare
     <a href="/docs/modules">DEVGUIDES</a>
   </nav>
   <div class="spacer"></div>
+  <button class="btn soft" id="logout-btn" type="button" title="退出登录" style="padding:7px 13px;margin-right:8px">退出</button>
   <button class="theme-toggle" data-theme-toggle type="button" aria-pressed="false" aria-label="切换主题" title="切换主题">
     <svg class="i-sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3L17 7M7 17l-1.7 1.7"/></svg>
     <svg class="i-moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.3A8.6 8.6 0 019.7 3.5a8.7 8.7 0 1010.8 10.8z"/></svg>
@@ -335,6 +336,10 @@ function showToast(text) {
 
 async function api(url, init) {
   const res = await fetch(url, init);
+  if (res.status === 401) {
+    location.href = '/login';
+    throw new Error('未登录');
+  }
   const text = await res.text();
   let data = null;
   try { data = JSON.parse(text); } catch {}
@@ -507,6 +512,11 @@ listEl.addEventListener('click', e => {
   if (toggleBtn) { toggle(toggleBtn.dataset.toggle); return; }
   const removeBtn = e.target.closest('[data-remove]');
   if (removeBtn) remove(removeBtn.dataset.remove);
+});
+
+document.getElementById('logout-btn').addEventListener('click', async () => {
+  try { await fetch('/api/auth/logout', { method: 'POST' }); } catch {}
+  location.href = '/login';
 });
 
 uploadBtn.addEventListener('click', () => uploadFile.click());

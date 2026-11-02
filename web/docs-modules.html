@@ -172,10 +172,14 @@
 
     <section id="api">
       <h2><span class="n">05</span>宿主 API</h2>
+      <p>除 <code>GET /api/health</code> 外，所有接口都要求登录会话（Cookie <code>mica_session</code>）。未登录时 <code>/api/*</code> 返回 401，页面跳转 <code>/login</code>；模块前端与宿主同源，<code>fetch</code> 会自动携带 Cookie。</p>
       <table>
         <thead><tr><th>方法</th><th>路径</th><th>说明</th></tr></thead>
         <tbody>
-          <tr><td>GET</td><td><code>/api/health</code></td><td>宿主版本、Go 运行时、模块数、运行时长、扫描告警</td></tr>
+          <tr><td>POST</td><td><code>/api/auth/login</code></td><td>JSON <code>{"password":"..."}</code> 换会话 Cookie；同 IP 1 分钟失败 5 次后 429</td></tr>
+          <tr><td>POST</td><td><code>/api/auth/logout</code></td><td>注销当前会话</td></tr>
+          <tr><td>GET</td><td><code>/api/auth/session</code></td><td>当前登录状态</td></tr>
+          <tr><td>GET</td><td><code>/api/health</code></td><td>宿主版本、Go 运行时、模块数、运行时长、扫描告警（公开）</td></tr>
           <tr><td>GET</td><td><code>/api/modules</code></td><td>全部模块清单（<code>installed</code> / <code>enabled</code> / <code>running</code>）</td></tr>
           <tr><td>POST</td><td><code>/api/modules/install</code></td><td>上传 zip 模块包并安装启用（multipart 字段 <code>file</code>）</td></tr>
           <tr><td>POST</td><td><code>/api/modules/{id}/enable</code></td><td>启用模块</td></tr>
@@ -190,8 +194,10 @@
       <pre><code># 打包：在模块目录内执行
 zip -r my-module.zip manifest.json frontend/
 
-# 命令行安装
-curl -F "file=@my-module.zip" http://localhost:8080/api/modules/install</code></pre>
+# 命令行安装（先登录拿 Cookie）
+curl -c cookie.txt -H 'Content-Type: application/json' \
+  -d '{"password":"你的口令"}' http://localhost:8080/api/auth/login
+curl -b cookie.txt -F "file=@my-module.zip" http://localhost:8080/api/modules/install</code></pre>
       <h3>接口试跑</h3>
       <p>直接对当前运行中的宿主发起真实请求，返回值就是调用方拿到的 JSON。</p>
       <div class="try">

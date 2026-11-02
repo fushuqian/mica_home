@@ -191,9 +191,14 @@ watch 要求：
 
 ## 5. 宿主 HTTP API
 
+除 `GET /api/health` 与 `/docs/*` 外，所有接口都要求已登录会话（Cookie `mica_session`）。未登录的 `/api/*` 返回 401；浏览器页面会 302 到 `/login`。模块前端与宿主同源，`fetch` 自动带 Cookie，无需额外处理；脚本/CI 需先 `POST /api/auth/login` 拿 Cookie。
+
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/api/health` | 版本、Go 版本、模块数、运行时长、扫描告警 |
+| POST | `/api/auth/login` | JSON `{"password":"..."}` 换会话 Cookie；同 IP 1 分钟失败 5 次后 429 |
+| POST | `/api/auth/logout` | 注销当前会话 |
+| GET | `/api/auth/session` | 当前登录状态 |
+| GET | `/api/health` | 版本、Go 版本、模块数、运行时长、扫描告警（公开） |
 | GET | `/api/system` | 限额、数据盘容量、`data.writable` |
 | GET | `/api/modules` | 模块列表，含 `sidecarState` / `sidecarPid` / `sidecarError` / `needConfirm` |
 | POST | `/api/modules/install` | multipart 字段 `file`（zip），流式落盘 |
