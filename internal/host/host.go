@@ -70,7 +70,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/modules/{id}/disable", s.disable)
 	mux.HandleFunc("POST /api/modules/{id}/confirm", s.confirm)
 	mux.HandleFunc("DELETE /api/modules/{id}", s.removeModule)
-	mux.HandleFunc("POST /api/modules/{id}/install", s.enable)    // 兼容旧调用：安装即启用
+	mux.HandleFunc("POST /api/modules/{id}/install", s.enable)         // 兼容旧调用：安装即启用
 	mux.HandleFunc("POST /api/modules/{id}/uninstall", s.removeModule) // 兼容旧调用：卸载即删除
 	mux.HandleFunc("GET /docs", s.docsIndex)
 	mux.HandleFunc("GET /docs/modules", s.htmlPage("docs-modules.html"))
