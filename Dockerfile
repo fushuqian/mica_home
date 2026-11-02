@@ -17,11 +17,14 @@ RUN useradd -u 10001 -M -s /usr/sbin/nologin mica
 WORKDIR /app
 COPY --from=build /out/mica-home /app/mica-home
 COPY modules /app/modules
-RUN mkdir -p /data && chown -R mica:mica /data /app
-USER mica
+COPY docker/entrypoint.sh /app/entrypoint.sh
+RUN chmod 755 /app/entrypoint.sh \
+    && mkdir -p /data && chown -R mica:mica /data /app
+# 以 root 进入入口脚本，先修正挂载目录属主（命名卷默认 root 所有），
+# 再用 setpriv 降权到 mica(10001) 运行；MICA_NO_CHOWN=1 可跳过修正。
+ENTRYPOINT ["/app/entrypoint.sh"]
 ENV MICA_ADDR=:8080 \
     MICA_MODULES_DIR=/app/modules \
     MICA_DATA_DIR=/data
 EXPOSE 8080
 VOLUME ["/data"]
-ENTRYPOINT ["/app/mica-home"]

@@ -2,6 +2,11 @@
 
 ## 2026-11-02
 
+### 修复 · 数据目录不可写（目标机首次部署）
+- 新增 `docker/entrypoint.sh`：容器以 root 启动，先修正 `/data`、`/app/modules` 属主到 10001（`/media`、`/downloads` 只改顶层），再用 `setpriv` 降权到 `mica` 运行宿主；`MICA_NO_CHOWN=1` 可跳过。
+- `Dockerfile` 去掉 `USER mica` 与 `ENTRYPOINT ["/app/mica-home"]`，改为执行入口脚本；命名卷默认 root 属主不再导致 `mkdir /data/tmp: permission denied` 与上传按钮禁用。
+- 用全新命名卷实测：宿主进程为 `mica`(UID 10001)，`/api/system` 返回 `data.writable=true`。
+
 ### 修复 · CI 格式检查
 - `internal/host/host.go` 存在 gofmt 未对齐的空行，导致 GitHub Actions 首个 workflow 的「格式检查」步骤失败；已格式化并在本地用 Go 容器通过 `gofmt`、`go vet`、`go test ./...` 验证，CI 转为通过。
 - 本地无 Go 环境时，统一用 `golang:1.24-alpine` 容器挂载源码执行格式检查与测试。

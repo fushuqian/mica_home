@@ -23,7 +23,7 @@ docker run -d --name mica-home --restart unless-stopped \
 - 验证：`curl http://localhost:8080/api/health` 返回 `{"status":"ok",...}`（该接口无需登录）。
 - 升级：`docker rm -f mica-home` 后用新 tag 重新执行上面的 `docker run`，两个卷保留。
 - 只映射 8080；sidecar 的代理端口只在容器内回环，不对外发布。
-- **目录挂载时先给权限**：容器以 UID 10001 运行，`./data`、`./modules` 属主不是 10001 时安装会失败（日志 `POST /api/modules/install 500`）。先执行 `sudo chown -R 10001:10001 data modules`；`/api/system` 会返回 `data.writable`，管理页不可写时会直接禁用上传并提示。
+- **目录属主**：容器入口会先以 root 修正 `/data`、`/app/modules` 的属主到 UID 10001，再降权运行宿主，因此命名卷与 bind mount 首次启动都不会出现 `mkdir /data/tmp: permission denied`。`/media`、`/downloads` 只修正顶层目录，不递归（避免 NAS 大目录耗时）。不想让容器改属主时设 `MICA_NO_CHOWN=1`，并自行执行 `sudo chown -R 10001:10001 data modules`；`/api/system` 会返回 `data.writable`，管理页不可写时会直接禁用上传并提示。
 
 也可以用 Compose（`compose.yaml`）：
 
@@ -93,6 +93,7 @@ go run . -addr :8080 -modules modules -data data
 ├── docs/MICA-UI.md         # 面向其他系统/Agent 的单文件 UI 设计规范（令牌 + 组件 CSS）
 ├── docs/SIDECAR-CONTRACT.md # 模块 Sidecar 契约（宿主 ↔ 模块方）
 ├── design/                 # 早期 UI 原型存档
+├── docker/entrypoint.sh    # 容器入口：修正挂载目录属主后降权到 UID 10001
 ├── Dockerfile
 └── docker-compose.yml
 ```
